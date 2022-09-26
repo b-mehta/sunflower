@@ -89,6 +89,25 @@ begin
   sorry
 end
 
+lemma part_one_one_easy_bit (R : finset α) (h : ¬ ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
+  ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
+begin
+  sorry
+end
+
+-- lemma part_one_one_hard_bit_first_step (R : finset α)
+--   (h : ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
+--   ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
+-- begin
+--   sorry
+-- end
+
+lemma part_one_one (R : finset α) :
+  ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
+begin
+  sorry
+end
+
 variables {Ω : Type*} [measurable_space Ω] {μ : measure Ω}
 
 instance {α : Type*} : measurable_space (finset α) := ⊤
