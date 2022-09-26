@@ -15,9 +15,14 @@ def shadow (G : finset (finset α)) (U : finset α) : finset (finset α) := G.fi
 
 lemma shadow_subset : shadow G U ⊆ G :=
 begin
-  sorry
+  unfold shadow,
+  simp only [finset.filter_subset],
+  -- rw finset.subset_iff,
+  -- intros x h,
+  -- refine finset.mem_of_mem_filter _ h,
 end
 
+-- defined for uniform distribution
 def spread (ε : ℝ) (U : finset (finset α)) : Prop :=
 ∀ (Z : finset α), (finset.card (U.filter (λ u, Z ⊆ u)) : ℝ) ≤ ε ^ Z.card * U.card
 
@@ -32,7 +37,7 @@ G.filter (λ A, ∀ B ∈ G, B ⊆ A → B = A)
 
 lemma to_antichain_subset : to_antichain G ⊆ G :=
 begin
-  sorry
+  apply finset.filter_subset,
 end
 
 lemma is_antichain_to_antichain : is_antichain (⊆) (to_antichain G : set (finset α)) :=
@@ -40,8 +45,36 @@ begin
   sorry
 end
 
+-- attempt to understand the to_antichain process as in the pdf
+lemma to_antichain_is_min_subcollection (A B : finset α): (∀ B ∈ G, B ⊆ A → B = A) ↔  (∀ B ∈ G, ¬ B ⊂ A) :=
+begin
+  split,
+  { intros h B hB hBA,
+    specialize h B hB,
+    cases hBA with h1 h2,
+    specialize h h1,
+    finish, },
+  { intros h B hB hBA,
+    specialize h B hB,
+    by_contra h',
+    have hp : B ⊂ A,
+    { rw finset.ssubset_iff_subset_ne, split, exact hBA, exact h', },
+    apply h,
+    exact hp, },
+end
+
+-- mathematically solvable by induction
 lemma contains_subset {A} (hA : A ∈ G) : ∃ B ∈ to_antichain G, B ⊆ A :=
 begin
+  -- induce on cardinality of A
+  set n := finset.card A,
+  -- induction n,
+
+  -- for n being zero, empty set A must be in G' as there is no proper subset of an empty set
+
+  -- for inductive step, we consider two cases, A in G' or otherwise
+  -- for A in G', use A and done
+  -- for A in G, there exists a proper subset of A in G, named A', |A'| < |A|, apply inductive hypothesis
   sorry
 end
 
