@@ -49,6 +49,7 @@ variables {W : ℕ → finset α} {i : ℕ}
 
 -- WARNING! : INDEXED DIFFERENTLY FROM THE PDF
 -- we only care about this definition for 0 ≤ i < t
+-- this is 𝒢
 def the_partial_function (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) : ℕ → finset (finset α)
 | i := to_antichain $
           (𝒮.filter $
@@ -61,10 +62,14 @@ def good_set (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) (i : 
 2 ^ (t - i) ≤ (S \ (finset.range (i+1)).bUnion W).card ∧
   ∀ j < i, ∀ X ∈ the_partial_function W 𝒮 t j, ¬ X ⊆ S
 
-lemma the_partial_function_eq (t : ℕ) : ∀ i,
-  the_partial_function W 𝒮 t i =
-    to_antichain ((𝒮.filter (good_set W 𝒮 t i)).image (λ S, S \ (finset.range (i+1)).bUnion W))
-| i := by { rw [the_partial_function], refl }
+-- this is 𝒢'
+def the_partial_function' (W : ℕ → finset α) (𝒮 : finset (finset α)) (t i : ℕ) :
+  finset (finset α) :=
+(𝒮.filter (good_set W 𝒮 t i)).image (λ S, S \ (finset.range (i+1)).bUnion W)
+
+lemma the_partial_function_eq (t i : ℕ) :
+  the_partial_function W 𝒮 t i = to_antichain (the_partial_function' W 𝒮 t i) :=
+by { rw [the_partial_function], refl }
 
 def the_function (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) :=
 (finset.range t).bUnion (the_partial_function W 𝒮 t)
@@ -95,12 +100,12 @@ begin
   sorry
 end
 
--- lemma part_one_one_hard_bit_first_step (R : finset α)
---   (h : ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
---   ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
--- begin
---   sorry
--- end
+lemma part_one_one_hard_bit_first_step (R : finset α)
+  (h : ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
+  (𝒮.filter (λ S, S \ (finset.range i).bUnion W ⊆ R ∧ S ∈ the_partial_function' W 𝒮 t i)).nonempty :=
+begin
+  sorry
+end
 
 lemma part_one_one (R : finset α) :
   ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
