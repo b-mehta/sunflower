@@ -35,6 +35,26 @@ end
 def to_antichain (G : finset (finset α)) : finset (finset α) :=
 G.filter (λ A, ∀ B ∈ G, B ⊆ A → B = A)
 
+lemma ssubset_thing {β : Type*} {X Y : finset β} : (¬ Y ⊂ X) ↔ (Y ⊆ X → Y = X) :=
+begin
+  split,
+  { intros hY hYX,
+    by_contra h,
+    have hp : Y ⊂ X,
+    { rw finset.ssubset_iff_subset_ne, split, exact hYX, exact h, },
+    apply hY,
+    exact hp, },
+  { intros hY hYX,
+    cases hYX with h1 h2,
+    specialize hY h1,
+    finish, },
+end
+
+lemma to_antichain_eq : to_antichain G = G.filter (λ A, ∀ B ∈ G, ¬ B ⊂ A) :=
+begin
+  simpa only [ssubset_thing],
+end
+
 lemma to_antichain_subset : to_antichain G ⊆ G :=
 begin
   apply finset.filter_subset,
@@ -45,37 +65,62 @@ begin
   sorry
 end
 
--- attempt to understand the to_antichain process as in the pdf
-lemma to_antichain_is_min_subcollection (A B : finset α): (∀ B ∈ G, B ⊆ A → B = A) ↔  (∀ B ∈ G, ¬ B ⊂ A) :=
-begin
-  split,
-  { intros h B hB hBA,
-    specialize h B hB,
-    cases hBA with h1 h2,
-    specialize h h1,
-    finish, },
-  { intros h B hB hBA,
-    specialize h B hB,
-    by_contra h',
-    have hp : B ⊂ A,
-    { rw finset.ssubset_iff_subset_ne, split, exact hBA, exact h', },
-    apply h,
-    exact hp, },
-end
 
--- mathematically solvable by induction
+-- mathematically solvable by induction on cardinality of A
 lemma contains_subset {A} (hA : A ∈ G) : ∃ B ∈ to_antichain G, B ⊆ A :=
 begin
-  -- induce on cardinality of A
-  set n := finset.card A,
-  -- induction n,
-
+  set n := finset.card A with h,
+  clear_value n,
+  induction n using nat.strong_induction_on with n ih generalizing A,
   -- for n being zero, empty set A must be in G' as there is no proper subset of an empty set
-
+  -- have hA' : A = ∅,
+  -- { rw ← finset.card_eq_zero, linarith, },
+  -- use A,
+  -- split,
+  -- { unfold to_antichain,
+  --   rw finset.mem_filter,
+  --   split, exact hA,
+  --   intros B hB hBA,
+  --   suffices : B = ∅,
+  --   rw hA', exact this,
+  --   rw hA' at hBA,
+  --   rwa finset.subset_empty at hBA, },
+  -- { simp only [subset_refl], },
   -- for inductive step, we consider two cases, A in G' or otherwise
+  have q : A ∈ to_antichain G ∨ A ∉ to_antichain G := by finish,
+  cases q with h1 h2,
   -- for A in G', use A and done
+  use A,
+  split, exact h1,
+  simp only [subset_refl],
   -- for A in G, there exists a proper subset of A in G, named A', |A'| < |A|, apply inductive hypothesis
-  sorry
+  have p : ∃ (C : finset α), C ∈ G ∧ C ⊂ A,
+  { by_contra hp,
+    push_neg at hp,
+    apply h2,
+    unfold to_antichain,
+    rw finset.mem_filter,
+    split, exact hA,
+    intros B hB,
+    rw ← ssubset_thing,
+    specialize hp B hB,
+    exact hp, },
+  rcases p with ⟨C, ⟨p1, p2⟩⟩,
+  have hC : C.card < n,
+  { rw h,
+    refine finset.card_lt_card p2, },
+  suffices : ∃ (B : finset α) (H : B ∈ to_antichain G), B ⊆ C,
+  { rcases this with ⟨B, ⟨hB1, hB2⟩⟩,
+    use B,
+    split, exact hB1,
+    refine subset_trans hB2 _,
+    rw subset_iff_ssubset_or_eq,
+    left, exact p2, },
+  { specialize ih C.card hC p1,
+    simp only [eq_self_iff_true, exists_prop, forall_true_left] at ih,
+    cases ih with B hB,
+    use B,
+    exact hB, },
 end
 
 variables {W : ℕ → finset α} {i : ℕ}
