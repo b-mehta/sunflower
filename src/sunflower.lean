@@ -127,6 +127,7 @@ variables {W : ℕ → finset α} {i : ℕ}
 
 -- WARNING! : INDEXED DIFFERENTLY FROM THE PDF
 -- we only care about this definition for 0 ≤ i < t
+-- this is 𝒢
 def the_partial_function (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) : ℕ → finset (finset α)
 | i := to_antichain $
           (𝒮.filter $
@@ -139,18 +140,69 @@ def good_set (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) (i : 
 2 ^ (t - i) ≤ (S \ (finset.range (i+1)).bUnion W).card ∧
   ∀ j < i, ∀ X ∈ the_partial_function W 𝒮 t j, ¬ X ⊆ S
 
-lemma the_partial_function_eq (t : ℕ) : ∀ i,
-  the_partial_function W 𝒮 t i =
-    to_antichain ((𝒮.filter (good_set W 𝒮 t i)).image (λ S, S \ (finset.range (i+1)).bUnion W))
-| i := by { rw [the_partial_function], refl }
+-- this is 𝒢'
+def the_partial_function' (W : ℕ → finset α) (𝒮 : finset (finset α)) (t i : ℕ) :
+  finset (finset α) :=
+(𝒮.filter (good_set W 𝒮 t i)).image (λ S, S \ (finset.range (i+1)).bUnion W)
+
+lemma the_partial_function_eq (t i : ℕ) :
+  the_partial_function W 𝒮 t i = to_antichain (the_partial_function' W 𝒮 t i) :=
+by { rw [the_partial_function], refl }
 
 def the_function (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) :=
 (finset.range t).bUnion (the_partial_function W 𝒮 t)
 
 lemma part_two_a_helper (ht : 1 ≤ t) (S) (h : ¬ S ⊆ (finset.range t).bUnion W) :
-  ∃ i ∈ finset.range t, 2 ^ (t - i) ≤ (S \ (finset.range (i + 1)).bUnion W).card :=
+  ∃ i ∈ finset.range t, 2 ^ (t-1 - i) ≤ (S \ (finset.range (i + 1)).bUnion W).card :=
 begin
-  sorry
+  use t-1,
+  have proof_subset : ∀ x : finset α, ∀ y : finset α, (x \ y).card = 0 → x ⊆ y,
+  {begin
+      intro hx,
+      intro hy,
+      intro card,
+      have proof_empty : hx \ hy = ∅ := iff.elim_left finset.card_eq_zero card,
+      have proof_final : hx ⊆ hy, {
+        have temp1 := iff.elim_left finset.eq_empty_iff_forall_not_mem proof_empty,
+        intro hx2,
+        intro assump1,
+        have assump2:hx2 ∉ hx \ hy := temp1 hx2,
+        by_contra hnp,
+        refine assump2 _,
+        exact iff.elim_right (finset.mem_sdiff) (and.intro assump1 hnp),
+      },
+      exact proof_final,
+    end
+  },
+  have proof_card_zero : ∀ x:ℕ, (¬ 1 ≤ x ) → x = 0,
+  {begin
+      intro x,
+      intro ineq,
+      linarith,
+    end},
+  have fulfills_condit : t-1 ∈ range(t), {
+    have bound:t-1 < t, {
+      linarith,
+    },
+    exact iff.elim_right finset.mem_range bound,
+  },
+  have bound_simp : 1 ≤ (S \ (finset.range (t)).bUnion W).card,
+  {
+    by_contra bound2,
+    exact h (proof_subset S ((finset.range (t)).bUnion W) (proof_card_zero (S \ (finset.range (t)).bUnion W).card bound2)),
+  },
+  have final : 2 ^ (t-1 - (t-1)) ≤ (S \ (finset.range (t-1 + 1)).bUnion W).card,
+  {
+    simp,
+    have equality:t-1+1 = t, {
+      begin
+      linarith
+      end
+    },
+    rw equality,
+    exact bound_simp,
+  },
+  exact and.intro fulfills_condit final,
 end
 
 lemma part_two_a_helper' (ht : 1 ≤ t) (S) (h : ¬ S ⊆ (finset.range t).bUnion W) :
@@ -173,12 +225,12 @@ begin
   sorry
 end
 
--- lemma part_one_one_hard_bit_first_step (R : finset α)
---   (h : ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
---   ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
--- begin
---   sorry
--- end
+lemma part_one_one_hard_bit_first_step (R : finset α)
+  (h : ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
+  (𝒮.filter (λ S, S \ (finset.range i).bUnion W ⊆ R ∧ S ∈ the_partial_function' W 𝒮 t i)).nonempty :=
+begin
+  sorry
+end
 
 lemma part_one_one (R : finset α) :
   ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
