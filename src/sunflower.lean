@@ -17,6 +17,7 @@ lemma shadow_subset : shadow G U ⊆ G :=
 begin
   unfold shadow,
   simp only [finset.filter_subset],
+  -- an alternative is
   -- rw finset.subset_iff,
   -- intros x h,
   -- refine finset.mem_of_mem_filter _ h,
@@ -64,7 +65,6 @@ lemma is_antichain_to_antichain : is_antichain (⊆) (to_antichain G : set (fins
 begin
   sorry
 end
-
 
 -- mathematically solvable by induction on cardinality of A
 lemma contains_subset {A} (hA : A ∈ G) : ∃ B ∈ to_antichain G, B ⊆ A :=
@@ -123,6 +123,30 @@ begin
     exact hB, },
 end
 
+lemma exists_subset_minimal {S : finset (finset α)} (hS : S.nonempty) :
+  ∃ X ∈ S, ∀ Y ∈ S, Y ⊆ X → Y = X :=
+begin
+  -- set M : finset (finset α) := S.filter(λ X : finset α, ∀ Y : finset α, Y ∈ S → X.card ≤ Y.card), 
+  set T : finset (finset α) := to_antichain S,
+  -- claim T is non-empty
+  have hT : T.nonempty,
+  { have := finset.nonempty.bex hS,
+    cases this with A hA,
+    have := contains_subset hA,
+    rcases this with ⟨B, ⟨hB1, hB2⟩⟩,
+    simp only [finset.nonempty],
+    use B,
+    exact hB1, },
+  have := finset.nonempty.bex hT,
+  cases this with X hX,
+  -- use X ∈ T
+  use X,
+  simp only [T] at hX,
+  unfold to_antichain at hX,
+  rw finset.mem_filter at hX,
+  exact hX,
+end
+
 variables {W : ℕ → finset α} {i : ℕ}
 
 -- WARNING! : INDEXED DIFFERENTLY FROM THE PDF
@@ -157,51 +181,28 @@ lemma part_two_a_helper (ht : 1 ≤ t) (S) (h : ¬ S ⊆ (finset.range t).bUnion
 begin
   use t-1,
   have proof_subset : ∀ x : finset α, ∀ y : finset α, (x \ y).card = 0 → x ⊆ y,
-  {begin
-      intro hx,
-      intro hy,
-      intro card,
-      have proof_empty : hx \ hy = ∅ := iff.elim_left finset.card_eq_zero card,
-      have proof_final : hx ⊆ hy, {
-        have temp1 := iff.elim_left finset.eq_empty_iff_forall_not_mem proof_empty,
-        intro hx2,
-        intro assump1,
-        have assump2:hx2 ∉ hx \ hy := temp1 hx2,
-        by_contra hnp,
-        refine assump2 _,
-        exact iff.elim_right (finset.mem_sdiff) (and.intro assump1 hnp),
-      },
-      exact proof_final,
-    end
-  },
-  have proof_card_zero : ∀ x:ℕ, (¬ 1 ≤ x ) → x = 0,
-  {begin
-      intro x,
-      intro ineq,
-      linarith,
-    end},
-  have fulfills_condit : t-1 ∈ range(t), {
-    have bound:t-1 < t, {
-      linarith,
-    },
-    exact iff.elim_right finset.mem_range bound,
-  },
+  { intros hx hy card,
+    have proof_empty : hx \ hy = ∅ := iff.elim_left finset.card_eq_zero card,
+    have proof_final : hx ⊆ hy, 
+    { have temp1 := iff.elim_left finset.eq_empty_iff_forall_not_mem proof_empty,
+      intros hx2 assump1,
+      have assump2:hx2 ∉ hx \ hy := temp1 hx2,
+      by_contra hnp,
+      refine assump2 _,
+      exact iff.elim_right (finset.mem_sdiff) (and.intro assump1 hnp), },
+      exact proof_final, },
+  have proof_card_zero : ∀ x : ℕ, (¬ 1 ≤ x ) → x = 0 := λ x ineq, by linarith,
+  have fulfills_condit : t-1 ∈ range(t), 
+  { have bound :t-1 < t := by linarith,
+    exact iff.elim_right finset.mem_range bound, },
   have bound_simp : 1 ≤ (S \ (finset.range (t)).bUnion W).card,
-  {
-    by_contra bound2,
-    exact h (proof_subset S ((finset.range (t)).bUnion W) (proof_card_zero (S \ (finset.range (t)).bUnion W).card bound2)),
-  },
+  { by_contra bound2,
+    exact h (proof_subset S ((finset.range (t)).bUnion W) (proof_card_zero (S \ (finset.range (t)).bUnion W).card bound2)), },
   have final : 2 ^ (t-1 - (t-1)) ≤ (S \ (finset.range (t-1 + 1)).bUnion W).card,
-  {
-    simp,
-    have equality:t-1+1 = t, {
-      begin
-      linarith
-      end
-    },
+  { simp,
+    have equality : t-1+1 = t := by linarith,
     rw equality,
-    exact bound_simp,
-  },
+    exact bound_simp, },
   exact and.intro fulfills_condit final,
 end
 
