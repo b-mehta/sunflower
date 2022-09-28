@@ -353,41 +353,6 @@ lemma thm1_part_two (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ
   (∃ S ∈ 𝒮, S ⊆ (range t).bUnion W) ∨ ∀ S ∈ 𝒮, ∃ X ∈ the_function W 𝒮 t, X ⊆ S :=
 begin
   sorry
-  -- rw or_iff_not_imp_left,
-  -- simp only [exists_prop, not_exists, not_and],
-  -- intros h S hS,
-  -- let T := (𝒮.filter (λ S', S' \ (range t).bUnion W ⊆ S \ (range t).bUnion W ∧
-  --   ∀ (j < t - 1) (X ∈ the_partial_function W 𝒮 t j), ¬ X ⊆ S')).image (λ S', S' \ (range t).bUnion W),
-  -- by_contra' q,
-  -- have : T.nonempty,
-  -- { refine ⟨S \ (range t).bUnion W, _⟩,
-  --   simp only [finset.mem_image, mem_filter, exists_prop, and_assoc],
-  --   refine ⟨S, hS, refl _, _, rfl⟩,
-  --   simp only [the_function, finset.mem_bUnion, finset.mem_range, exists_prop,
-  --     forall_exists_index, and_imp] at q,
-  --   intros j hj X,
-  --   exact q X j (hj.trans_le (nat.sub_le _ _)), },
-  -- obtain ⟨S', hS'⟩ := exists_subset_minimal this,
-  -- simp only [mem_filter, and_imp, exists_prop, T, ←ssubset_thing, finset.mem_image,
-  --   and_assoc, forall_exists_index] at hS',
-  -- obtain ⟨⟨S', hS', h₁S', h₂S', rfl⟩, h'⟩ := hS',
-  -- have := λ S'' hS'' h₁S'' h₂S'', h' _ S'' hS'' h₁S'' h₂S'' rfl,
-  -- have : S' \ (range t).bUnion W ∈ the_partial_function W 𝒮 t (t - 1),
-  -- { rw [the_partial_function],
-  --   simp only [finset.mem_image, exists_prop, mem_filter, and_assoc],
-  --   simp only [not_forall, not_not, exists_prop],
-  --   refine ⟨S', hS', _⟩,
-  --   rw [nat.sub_sub, nat.sub_add_cancel ht],
-  --   refine ⟨_, h₂S', _, rfl⟩,
-  --   { sorry },
-  --   intros S'' hS'' h'',
-  --   by_contra' z,
-  --   exact this S'' hS'' (h''.1.trans h₁S') z h'' },
-  -- have : S' \ (range t).bUnion W ∈ the_function W 𝒮 t,
-  -- { simp only [the_function, finset.mem_bUnion, finset.mem_range],
-  --   exact ⟨t - 1, nat.sub_lt_of_pos_le _ _ zero_lt_one ht, this⟩ },
-  -- apply q _ this,
-  -- exact h₁S'.trans (sdiff_subset _ _),
 end
 
 def sample_space (α : Type*) [fintype α] [decidable_eq α] (m t : ℕ) :=
