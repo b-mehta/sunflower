@@ -1,4 +1,5 @@
 import algebra.big_operators.ring
+import data.finset.finsupp
 import probability.density
 import probability.independence
 import probability.conditional_expectation
@@ -10,6 +11,89 @@ open_locale big_operators measure_theory ennreal probability_theory
 
 variables {α : Type*} [fintype α] [decidable_eq α]
 variables {𝒮 : finset (finset α)} {G : finset (finset α)} {U : finset α} {t : ℕ}
+
+section partition
+
+  def tuples_on (s : finset α) (m t : ℕ) : finset (ℕ → finset α) :=
+  (finset.pi (range t) (λ _, s.powerset_len m)).map $
+    { to_fun := λ f i, if h : i < t then f i (by simpa using h) else ∅,
+      inj' :=
+      begin
+        rintro f g h,
+        ext x hx : 2,
+        simpa [dif_pos (finset.mem_range.1 hx)] using function.funext_iff.1 h x,
+      end }
+
+  lemma mem_tuples_on {m t : ℕ} {s : finset α} (f : ℕ → finset α) :
+    f ∈ tuples_on s m t ↔ (∀ i < t, f i ⊆ s ∧ (f i).card = m) ∧ ∀ i ≥ t, f i = ∅ :=
+  begin
+    simp only [tuples_on, finset.mem_map, finset.mem_range, finset.mem_pi,
+      function.embedding.coe_fn_mk, exists_prop, ge_iff_le, mem_powerset_len],
+    split,
+    { rintro ⟨f, hf₁, rfl⟩,
+      refine ⟨λ i hi, _, λ i hi, _⟩,
+      { simpa [dif_pos hi] using hf₁ _ hi },
+      simp only [dif_neg hi.not_lt] },
+    rintro ⟨hf₁, hf₂⟩,
+    refine ⟨λ i _, f i, hf₁, _⟩,
+    ext i : 1,
+    split_ifs,
+    { refl },
+    rw hf₂ _ (le_of_not_lt h),
+  end
+
+  -- We view s,m,t- partitions as ordered sequences W0, W1, W2, ... with the conditions:
+  --   Wj for j ≥ t is empty
+  --      (essentially this says W is defined up to but not including t)
+  --   Wj for j < t is a subset of s
+  --   Wj for j < t has cardinality m
+  --   the collection {Wj for j < t} is pairwise disjoint
+  -- In most cases we will have `s` as our entire finite universe
+
+  -- This is not a standard way of defining partitions, but it is *vital* for ours to be ordered
+  -- so I use this version
+  -- `partitions_on s m t` is the finite set of these partitions
+  -- its Lean definition isn't very helpful, but `mem_partitions_on` says it does what it's meant to.
+  -- So when proving things about `partitions_on`, you almost always want to be using this lemma
+  -- rather than the definition (or `mem_partitions_on` which is logically equivalent but sometimes
+  -- may be more useful)
+
+  def partitions_on (s : finset α) (m t : ℕ) : finset (ℕ → finset α) :=
+  (tuples_on s m t).filter (λ f, ∀ i j < t, i ≠ j → disjoint (f i) (f j))
+
+  lemma mem_partitions_on {m t : ℕ} {s : finset α} (f : ℕ → finset α) :
+    f ∈ partitions_on s m t ↔
+      (∀ i < t, f i ⊆ s ∧ (f i).card = m) ∧ (∀ i ≥ t, f i = ∅) ∧
+      ∀ i j < t, i ≠ j → disjoint (f i) (f j) :=
+  by simp only [partitions_on, mem_filter, mem_tuples_on, and_assoc]
+
+  lemma mem_partitions_on' {m t : ℕ} {s : finset α} (f : ℕ → finset α) :
+    f ∈ partitions_on s m t ↔
+      (∀ i < t, (f i).card = m) ∧
+      (∀ i ≥ t, f i = ∅) ∧
+      (∀ i, f i ⊆ s) ∧
+      ∀ i j, i ≠ j → disjoint (f i) (f j) :=
+  begin
+    rw mem_partitions_on,
+    split,
+    { rintro ⟨hf₁, hf₂, hf₃⟩,
+      refine ⟨λ i hi, (hf₁ _ hi).2, hf₂, λ i, _, _⟩,
+      { cases lt_or_le i t,
+        { apply (hf₁ _ ‹_›).1 },
+        rw hf₂ _ h,
+        simp },
+      intros i j h,
+      wlog : i ≤ j using i j,
+      { cases lt_or_le j t,
+        { exact hf₃ i (case.trans_lt h_1) j ‹_› h },
+        rw hf₂ j h_1,
+        apply disjoint_empty_right },
+      exact (this h.symm).symm },
+    { rintro ⟨hf₁, hf₂, hf₃, hf₄⟩,
+      exact ⟨λ i hi, ⟨hf₃ _, hf₁ _ hi⟩, hf₂, λ i _ j _, hf₄ i j⟩ }
+  end
+
+end partition
 
 def shadow (G : finset (finset α)) (U : finset α) : finset (finset α) := G.filter (λ Y, Y ⊆ U)
 
@@ -222,115 +306,199 @@ variables {W : ℕ → finset α} {i : ℕ}
 -- we only care about this definition for 0 ≤ i < t
 -- this is 𝒢
 def the_partial_function (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) : ℕ → finset (finset α)
-| i := to_antichain $
-          (𝒮.filter $
-            λ S, 2 ^ (t - i - 1) ≤ (S \ (finset.range (i+1)).bUnion W).card ∧
-            ∀ j < i, ∀ X ∈ the_partial_function j, ¬ X ⊆ S).image $
-          λ S, S \ (finset.range (i+1)).bUnion W
-
-@[derive decidable]
-def good_set (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) (i : ℕ) (S : finset α) : Prop :=
-2 ^ (t - i - 1) ≤ (S \ (finset.range (i+1)).bUnion W).card ∧
-  ∀ j < i, ∀ X ∈ the_partial_function W 𝒮 t j, ¬ X ⊆ S
-
--- this is 𝒢'
-def the_partial_function' (W : ℕ → finset α) (𝒮 : finset (finset α)) (t i : ℕ) :
-  finset (finset α) :=
-(𝒮.filter (good_set W 𝒮 t i)).image (λ S, S \ (finset.range (i+1)).bUnion W)
-
-lemma the_partial_function_eq (t i : ℕ) :
-  the_partial_function W 𝒮 t i = to_antichain (the_partial_function' W 𝒮 t i) :=
-by { rw [the_partial_function], refl }
+| i :=
+    finset.image (λ S, S \ (finset.range (i+1)).bUnion W) $
+    @finset.filter _
+      (λ S, 2 ^ (t - i - 1) ≤ (S \ (finset.range (i+1)).bUnion W).card ∧
+            (∀ j < i, ∀ X ∈ the_partial_function j, ¬ X ⊆ S) ∧
+            ∀ S' ∈ 𝒮, S' \ (finset.range (i+1)).bUnion W ⊂ S \ (finset.range (i+1)).bUnion W →
+              ¬ ∀ (j < i), ∀ (X ∈ the_partial_function j), ¬ X ⊆ S')
+      (λ S, @and.decidable _ _ _ (@and.decidable _ _ _ finset.decidable_dforall_finset))
+      -- this decidability detour is *really weird*, it indicates something is bad in mathlib
+      -- I think...
+    𝒮
 
 def the_function (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) :=
 (finset.range t).bUnion (the_partial_function W 𝒮 t)
 
-lemma part_one_one_easy_bit (R : finset α) (h : ¬ ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
-  ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
+lemma bUnion_indep {i : ℕ} (W₁ W₂ : ℕ → finset α) (h : ∀ j ≤ i, W₁ j = W₂ j) :
+  (range (i+1)).bUnion W₁ = (range (i+1)).bUnion W₂ :=
 begin
-  rw [finset.filter_false_of_mem, card_empty],
-  { apply nat.zero_le _ },
-  rintro T hT rfl,
-  exact h ⟨T, hT, subset_union_left _ _⟩,
+  ext x,
+  simp only [finset.mem_range_succ_iff, finset.mem_bUnion],
+  refine bex_congr (λ j hj, _),
+  rw h _ hj
 end
 
-lemma part_one_one_other_easy_bit (R : finset α) (hR : ¬ W i ⊆ R) :
-  ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
+lemma the_partial_function_indep {𝒮 : finset (finset α)} {t i : ℕ} (W₁ W₂ : ℕ → finset α)
+  (h : ∀ j ≤ i, W₁ j = W₂ j) :
+  the_partial_function W₁ 𝒮 t i = the_partial_function W₂ 𝒮 t i :=
 begin
-  rw [finset.filter_false_of_mem, card_empty],
-  { apply nat.zero_le _ },
-  rintro T hT rfl,
-  exact hR (subset_union_right _ _),
+  induction i using nat.strong_induction_on with i ih,
+  -- change finset.image _ _ = finset.image _ _,
+  -- -- induction i,
+  rw [the_partial_function.equations._eqn_1 W₂, the_partial_function],
+  rw [bUnion_indep W₁ W₂ h],
+  have : ∀ (p : finset α → Prop), (∀ j < i, ∀ X ∈ the_partial_function W₁ 𝒮 t j, p X) ↔
+    (∀ j < i, ∀ X ∈ the_partial_function W₂ 𝒮 t j, p X),
+  { intro p,
+    refine ball_congr (λ j hj, _),
+    rw ih j hj (λ k hk, h _ (hk.trans hj.le)) },
+  congr' 2,
+  ext S,
+  simp only [this],
 end
 
-lemma part_one_one_hard_bit_first_step {R : finset α} (hR : W i ⊆ R)
-  (h : ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
-  (𝒮.filter (λ S, S \ (finset.range i).bUnion W ⊆ R ∧
-    S \ (finset.range (i + 1)).bUnion W ∈ the_partial_function' W 𝒮 t i)).nonempty :=
+lemma thm1_part_two (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) (ht : 1 ≤ t) :
+  (∃ S ∈ 𝒮, S ⊆ (range t).bUnion W) ∨ ∀ S ∈ 𝒮, ∃ X ∈ the_function W 𝒮 t, X ⊆ S :=
 begin
-  obtain ⟨T, hT₁, hT₂⟩ := h,
-  rw [the_partial_function_eq] at hT₁,
-  replace hT₁ := to_antichain_subset hT₁,
-  simp only [the_partial_function', mem_filter, finset.mem_image, exists_prop, and_assoc,
-    finset.nonempty] at hT₁ ⊢,
-  obtain ⟨S, hS₁, hS₂, rfl⟩ := hT₁,
-  refine ⟨S, hS₁, _, S, hS₁, hS₂, rfl⟩,
-  rw [range_succ, finset.bUnion_insert, sdiff_union_distrib] at hT₂,
-  intros x hx,
-  by_cases x ∈ W i,
-  { apply hR h },
-  apply hT₂,
-  simp only [finset.mem_inter, mem_sdiff, finset.mem_bUnion, finset.mem_range, exists_prop,
-    not_exists, not_and] at hx ⊢,
-  tauto
+  sorry
+  -- rw or_iff_not_imp_left,
+  -- simp only [exists_prop, not_exists, not_and],
+  -- intros h S hS,
+  -- let T := (𝒮.filter (λ S', S' \ (range t).bUnion W ⊆ S \ (range t).bUnion W ∧
+  --   ∀ (j < t - 1) (X ∈ the_partial_function W 𝒮 t j), ¬ X ⊆ S')).image (λ S', S' \ (range t).bUnion W),
+  -- by_contra' q,
+  -- have : T.nonempty,
+  -- { refine ⟨S \ (range t).bUnion W, _⟩,
+  --   simp only [finset.mem_image, mem_filter, exists_prop, and_assoc],
+  --   refine ⟨S, hS, refl _, _, rfl⟩,
+  --   simp only [the_function, finset.mem_bUnion, finset.mem_range, exists_prop,
+  --     forall_exists_index, and_imp] at q,
+  --   intros j hj X,
+  --   exact q X j (hj.trans_le (nat.sub_le _ _)), },
+  -- obtain ⟨S', hS'⟩ := exists_subset_minimal this,
+  -- simp only [mem_filter, and_imp, exists_prop, T, ←ssubset_thing, finset.mem_image,
+  --   and_assoc, forall_exists_index] at hS',
+  -- obtain ⟨⟨S', hS', h₁S', h₂S', rfl⟩, h'⟩ := hS',
+  -- have := λ S'' hS'' h₁S'' h₂S'', h' _ S'' hS'' h₁S'' h₂S'' rfl,
+  -- have : S' \ (range t).bUnion W ∈ the_partial_function W 𝒮 t (t - 1),
+  -- { rw [the_partial_function],
+  --   simp only [finset.mem_image, exists_prop, mem_filter, and_assoc],
+  --   simp only [not_forall, not_not, exists_prop],
+  --   refine ⟨S', hS', _⟩,
+  --   rw [nat.sub_sub, nat.sub_add_cancel ht],
+  --   refine ⟨_, h₂S', _, rfl⟩,
+  --   { sorry },
+  --   intros S'' hS'' h'',
+  --   by_contra' z,
+  --   exact this S'' hS'' (h''.1.trans h₁S') z h'' },
+  -- have : S' \ (range t).bUnion W ∈ the_function W 𝒮 t,
+  -- { simp only [the_function, finset.mem_bUnion, finset.mem_range],
+  --   exact ⟨t - 1, nat.sub_lt_of_pos_le _ _ zero_lt_one ht, this⟩ },
+  -- apply q _ this,
+  -- exact h₁S'.trans (sdiff_subset _ _),
 end
 
-lemma part_one_one (R : finset α)  (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) :
-  ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
+def sample_space (α : Type*) [fintype α] [decidable_eq α] (m t : ℕ) :=
+partitions_on (finset.univ : finset α) m t
+
+lemma thm1_part_one {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}
+  (hm : 1 ≤ m) (ht : 1 ≤ t) (hε : 0 < ε)
+  (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U)
+  (h : ∀ (R : finset α) i < t,
+    (((sample_space α m t).filter (λ (W : ℕ → finset α), W i ⊆ R)).card : ℝ) ≤
+      ((64 * ε) ^ (m - R.card) / (fintype.card α).choose R.card) * (sample_space α m t).card) :
+  ∑ W in sample_space α m t, ∑ u in U, ((the_function W 𝒮 t).card : ℝ) <
+    1 / 8 * (sample_space α m t).card * U.card :=
 begin
-  by_cases h₁ : W i ⊆ R,
-  { by_cases h₂ : ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R,
-    { apply part_one_one_hard_bit _ h₁ hS h₂ },
-    apply part_one_one_easy_bit _ h₂ },
-  apply part_one_one_other_easy_bit _ h₁,
+  sorry
 end
 
-variables {Ω : Type*} [measurable_space Ω] {μ : measure Ω}
+  -- finset.card (((partitions_on finset.univ m t).product U).filter _)
 
-instance {α : Type*} : measurable_space (finset α) := ⊤
 
-def spread_distribution (μ : measure Ω) (ε : ℝ) (UU : Ω → finset α) : Prop :=
-∀ Z : finset α, (μ {ω | Z ⊆ UU ω}).to_real ≤ ε ^ Z.card
+-- lemma part_one_one_easy_bit (R : finset α) (h : ¬ ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
+--   ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
+-- begin
+--   rw [finset.filter_false_of_mem, card_empty],
+--   { apply nat.zero_le _ },
+--   rintro T hT rfl,
+--   exact h ⟨T, hT, subset_union_left _ _⟩,
+-- end
 
-lemma spread_iff_uniform (ε : ℝ) (U : finset (finset α)) (UU : Ω → finset α)
-  (hUU : pdf.is_uniform UU (U : set (finset α)) μ measure.count) :
-  spread ε U ↔ spread_distribution μ ε UU :=
-by sorry -- TODO: Bhavik
+-- lemma part_one_one_other_easy_bit (R : finset α) (hR : ¬ W i ⊆ R) :
+--   ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
+-- begin
+--   rw [finset.filter_false_of_mem, card_empty],
+--   { apply nat.zero_le _ },
+--   rintro T hT rfl,
+--   exact hR (subset_union_right _ _),
+-- end
 
-lemma exists_uniform {E : Type*} [measurable_space E] (s : set E) (μ : measure E) [sigma_finite μ]
-  (hs : measurable_set s) :
-  pdf.is_uniform id s (μ[|s]) μ :=
-begin
-  haveI : has_pdf (id : E → E) (μ[|s]) μ,
-  { refine ⟨⟨measurable_id, s.indicator ((μ s)⁻¹ • 1), _, _⟩⟩,
-    { refine measurable.indicator _ hs,
-      refine measurable_one.const_smul _ },
-    rw [with_density_indicator hs, with_density_smul _ measurable_one, with_density_one,
-      measure.map_id],
-    refl },
-  change _ =ᵐ[_] _,
-  apply ae_eq_of_forall_set_lintegral_eq_of_sigma_finite,
-  { apply measurable_pdf },
-  { exact (measurable_one.const_smul _).indicator hs },
-  intros A hA hA',
-  rw [←map_eq_set_lintegral_pdf (id : E → E) (μ[|s]) μ hA],
-  rw lintegral_indicator _ hs,
-  rw measure.map_id,
-  simp only [pi.smul_apply, pi.one_apply, algebra.id.smul_eq_mul, mul_one, lintegral_const,
-    measure.restrict_apply, measurable_set.univ, set.univ_inter],
-  rw [cond_apply _ hs, measure.restrict_apply hs],
-end
+-- lemma part_one_one_hard_bit_first_step {R : finset α} (hR : W i ⊆ R)
+--   (h : ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
+--   (𝒮.filter (λ S, S \ (finset.range i).bUnion W ⊆ R ∧
+--     S \ (finset.range (i + 1)).bUnion W ∈ the_partial_function' W 𝒮 t i)).nonempty :=
+-- begin
+--   obtain ⟨T, hT₁, hT₂⟩ := h,
+--   rw [the_partial_function_eq] at hT₁,
+--   replace hT₁ := to_antichain_subset hT₁,
+--   simp only [the_partial_function', mem_filter, finset.mem_image, exists_prop, and_assoc,
+--     finset.nonempty] at hT₁ ⊢,
+--   obtain ⟨S, hS₁, hS₂, rfl⟩ := hT₁,
+--   refine ⟨S, hS₁, _, S, hS₁, hS₂, rfl⟩,
+--   rw [range_succ, finset.bUnion_insert, sdiff_union_distrib] at hT₂,
+--   intros x hx,
+--   by_cases x ∈ W i,
+--   { apply hR h },
+--   apply hT₂,
+--   simp only [finset.mem_inter, mem_sdiff, finset.mem_bUnion, finset.mem_range, exists_prop,
+--     not_exists, not_and] at hx ⊢,
+--   tauto
+-- end
 
-lemma exists_uniform' (ε : ℝ) (U : finset (finset α)) : ∃ (μ : measure (finset α))
-  (UU : finset α → finset α), pdf.is_uniform UU (U : set (finset α)) μ measure.count :=
-⟨_, _, exists_uniform _ _ measurable_space.measurable_set_top⟩
+
+-- #check cond_count
+-- #check matrix.vec_cons
+-- lemma part_one_one (R : finset α)  (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) :
+--   ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
+-- begin
+--   -- by_cases h₁ : W i ⊆ R,
+--   -- { by_cases h₂ : ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R,
+--   --   { apply part_one_one_hard_bit _ h₁ hS h₂ },
+--   --   apply part_one_one_easy_bit _ h₂ },
+--   -- apply part_one_one_other_easy_bit _ h₁,
+-- end
+
+#exit
+
+-- variables {Ω : Type*} [measurable_space Ω] {μ : measure Ω}
+
+-- instance {α : Type*} : measurable_space (finset α) := ⊤
+
+-- def spread_distribution (μ : measure Ω) (ε : ℝ) (UU : Ω → finset α) : Prop :=
+-- ∀ Z : finset α, (μ {ω | Z ⊆ UU ω}).to_real ≤ ε ^ Z.card
+
+-- lemma spread_iff_uniform (ε : ℝ) (U : finset (finset α)) (UU : Ω → finset α)
+--   (hUU : pdf.is_uniform UU (U : set (finset α)) μ measure.count) :
+--   spread ε U ↔ spread_distribution μ ε UU :=
+-- by sorry -- TODO: Bhavik
+
+-- lemma exists_uniform {E : Type*} [measurable_space E] (s : set E) (μ : measure E) [sigma_finite μ]
+--   (hs : measurable_set s) :
+--   pdf.is_uniform id s (μ[|s]) μ :=
+-- begin
+--   haveI : has_pdf (id : E → E) (μ[|s]) μ,
+--   { refine ⟨⟨measurable_id, s.indicator ((μ s)⁻¹ • 1), _, _⟩⟩,
+--     { refine measurable.indicator _ hs,
+--       refine measurable_one.const_smul _ },
+--     rw [with_density_indicator hs, with_density_smul _ measurable_one, with_density_one,
+--       measure.map_id],
+--     refl },
+--   change _ =ᵐ[_] _,
+--   apply ae_eq_of_forall_set_lintegral_eq_of_sigma_finite,
+--   { apply measurable_pdf },
+--   { exact (measurable_one.const_smul _).indicator hs },
+--   intros A hA hA',
+--   rw [←map_eq_set_lintegral_pdf (id : E → E) (μ[|s]) μ hA],
+--   rw lintegral_indicator _ hs,
+--   rw measure.map_id,
+--   simp only [pi.smul_apply, pi.one_apply, algebra.id.smul_eq_mul, mul_one, lintegral_const,
+--     measure.restrict_apply, measurable_set.univ, set.univ_inter],
+--   rw [cond_apply _ hs, measure.restrict_apply hs],
+-- end
+
+-- lemma exists_uniform' (ε : ℝ) (U : finset (finset α)) : ∃ (μ : measure (finset α))
+--   (UU : finset α → finset α), pdf.is_uniform UU (U : set (finset α)) μ measure.count :=
+-- ⟨_, _, exists_uniform _ _ measurable_space.measurable_set_top⟩
