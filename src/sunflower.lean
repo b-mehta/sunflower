@@ -7,7 +7,7 @@ import probability.notation
 import probability.cond_count
 
 open finset set measure_theory probability_theory
-open_locale big_operators measure_theory ennreal probability_theory
+open_locale big_operators measure_theory ennreal
 
 variables {α : Type*} [fintype α] [decidable_eq α]
 variables {𝒮 : finset (finset α)} {G : finset (finset α)} {U : finset α} {t : ℕ}
@@ -55,7 +55,7 @@ section partition
   -- `partitions_on s m t` is the finite set of these partitions
   -- its Lean definition isn't very helpful, but `mem_partitions_on` says it does what it's meant to.
   -- So when proving things about `partitions_on`, you almost always want to be using this lemma
-  -- rather than the definition (or `mem_partitions_on` which is logically equivalent but sometimes
+  -- rather than the definition (or `mem_partitions_on'` which is logically equivalent but sometimes
   -- may be more useful)
 
   def partitions_on (s : finset α) (m t : ℕ) : finset (ℕ → finset α) :=
@@ -304,7 +304,7 @@ variables {W : ℕ → finset α} {i : ℕ}
 
 -- WARNING! : INDEXED DIFFERENTLY FROM THE PDF
 -- we only care about this definition for 0 ≤ i < t
--- this is 𝒢
+-- this is 𝒢 the function
 def the_partial_function (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) : ℕ → finset (finset α)
 | i :=
     finset.image (λ S, S \ (finset.range (i+1)).bUnion W) $
@@ -358,20 +358,46 @@ end
 def sample_space (α : Type*) [fintype α] [decidable_eq α] (m t : ℕ) :=
 partitions_on (finset.univ : finset α) m t
 
+def finset.expectation {α M : Type*} [field M] (s : finset α) (f : α → M) : M :=
+(∑ x in s, f x) / s.card
+
+local notation (name := finset.expectation)
+  `𝔼` binders ` in ` s `, ` r:(scoped:67 f, finset.expectation s f) := r
+
+lemma expectation_eq {α M : Type*} [field M] {s : finset α} {f : α → M} :
+  𝔼 x in s, f x = ∑ x in s, f x / s.card :=
+by rw [finset.expectation, sum_div]
+
+
 lemma thm1_part_one {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}
   (hm : 1 ≤ m) (ht : 1 ≤ t) (hε : 0 < ε)
   (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U)
   (h : ∀ (R : finset α) i < t,
     (((sample_space α m t).filter (λ (W : ℕ → finset α), W i ⊆ R)).card : ℝ) ≤
       ((64 * ε) ^ (m - R.card) / (fintype.card α).choose R.card) * (sample_space α m t).card) :
-  ∑ W in sample_space α m t, ∑ u in U, ((the_function W 𝒮 t).card : ℝ) <
-    1 / 8 * (sample_space α m t).card * U.card :=
+  𝔼 W in sample_space α m t, 𝔼 u in U, ((shadow (the_function W 𝒮 t) u).card : ℝ) < 1 / 8 :=
 begin
   sorry
 end
 
-  -- finset.card (((partitions_on finset.univ m t).product U).filter _)
+-- this is 𝒢 the distribution
+def the_distribution (W : finset α) (𝒮 : finset (finset α)) (m : ℕ) (t : ℕ) :
+  finset (finset (finset α)) :=
+(partitions_on W m t).image (λ W', the_function W' 𝒮 t)
 
+lemma cor1 {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}
+  (hm : 1 ≤ m) (ht : 1 ≤ t) (hε : 0 < ε) (hn : ε ≤ m / 64 * fintype.card α)
+  (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U) :
+  𝔼 W in finset.univ.powerset_len (m * t),
+    𝔼 G in the_distribution W 𝒮 m t,
+      𝔼 u in U, ((shadow G u).card : ℝ) < 1 / 8 ∧
+  ∀ W, (∃ S ∈ 𝒮, S ⊆ W) ∨ ∀ G ∈ the_distribution W 𝒮 m t, ∀ S ∈ 𝒮, ∃ X ∈ G, X ⊆ S :=
+begin
+  sorry
+end
+
+-- the things from here down are Bhavik's proofs of stuff which is now (probably) not necessary
+-- but I'm keeping them just in case they turn out useful
 
 -- lemma part_one_one_easy_bit (R : finset α) (h : ¬ ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
 --   ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
@@ -425,8 +451,6 @@ end
 --   --   apply part_one_one_easy_bit _ h₂ },
 --   -- apply part_one_one_other_easy_bit _ h₁,
 -- end
-
-#exit
 
 -- variables {Ω : Type*} [measurable_space Ω] {μ : measure Ω}
 
