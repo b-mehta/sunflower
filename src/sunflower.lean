@@ -380,18 +380,13 @@ begin
   sorry
 end
 
--- this is 𝒢 the distribution
-def the_distribution (W : finset α) (𝒮 : finset (finset α)) (m : ℕ) (t : ℕ) :
-  finset (finset (finset α)) :=
-(partitions_on W m t).image (λ W', the_function W' 𝒮 t)
-
 lemma cor1 {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}
   (hm : 1 ≤ m) (ht : 1 ≤ t) (hε : 0 < ε) (hn : ε ≤ m / 64 * fintype.card α)
   (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U) :
   𝔼 W in finset.univ.powerset_len (m * t),
-    𝔼 G in the_distribution W 𝒮 m t,
-      𝔼 u in U, ((shadow G u).card : ℝ) < 1 / 8 ∧
-  ∀ W, (∃ S ∈ 𝒮, S ⊆ W) ∨ ∀ G ∈ the_distribution W 𝒮 m t, ∀ S ∈ 𝒮, ∃ X ∈ G, X ⊆ S :=
+    𝔼 Ws in partitions_on W m t,
+      𝔼 u in U, ((shadow (the_function Ws 𝒮 t) u).card : ℝ) < 1 / 8 ∧
+  ∀ W, (∃ S ∈ 𝒮, S ⊆ W) ∨ ∀ Ws ∈ partitions_on W m t, ∀ S ∈ 𝒮, ∃ X ∈ the_function Ws 𝒮 t, X ⊆ S :=
 begin
   sorry
 end
