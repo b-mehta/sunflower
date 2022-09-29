@@ -10,7 +10,7 @@ import data.nat.basic
 import data.finset.basic
 
 open finset set measure_theory probability_theory
-open_locale big_operators measure_theory ennreal probability_theory
+open_locale big_operators measure_theory ennreal
 
 variables {α : Type*} [fintype α] [decidable_eq α]
 variables {𝒮 : finset (finset α)} {G : finset (finset α)} {U : finset α} {t : ℕ}
@@ -58,7 +58,7 @@ section partition
   -- `partitions_on s m t` is the finite set of these partitions
   -- its Lean definition isn't very helpful, but `mem_partitions_on` says it does what it's meant to.
   -- So when proving things about `partitions_on`, you almost always want to be using this lemma
-  -- rather than the definition (or `mem_partitions_on` which is logically equivalent but sometimes
+  -- rather than the definition (or `mem_partitions_on'` which is logically equivalent but sometimes
   -- may be more useful)
 
   def partitions_on (s : finset α) (m t : ℕ) : finset (ℕ → finset α) :=
@@ -308,7 +308,7 @@ variables {W : ℕ → finset α} {i : ℕ}
 
 -- WARNING! : INDEXED DIFFERENTLY FROM THE PDF
 -- we only care about this definition for 0 ≤ i < t
--- this is 𝒢
+-- this is 𝒢 the function
 def the_partial_function (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) : ℕ → finset (finset α)
 | i :=
     finset.image (λ S, S \ (finset.range (i+1)).bUnion W) $
@@ -362,20 +362,41 @@ end
 def sample_space (α : Type*) [fintype α] [decidable_eq α] (m t : ℕ) :=
 partitions_on (finset.univ : finset α) m t
 
+def finset.expectation {α M : Type*} [field M] (s : finset α) (f : α → M) : M :=
+(∑ x in s, f x) / s.card
+
+local notation (name := finset.expectation)
+  `𝔼` binders ` in ` s `, ` r:(scoped:67 f, finset.expectation s f) := r
+
+lemma expectation_eq {α M : Type*} [field M] {s : finset α} {f : α → M} :
+  𝔼 x in s, f x = ∑ x in s, f x / s.card :=
+by rw [finset.expectation, sum_div]
+
+
 lemma thm1_part_one {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}
   (hm : 1 ≤ m) (ht : 1 ≤ t) (hε : 0 < ε)
   (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U)
   (h : ∀ (R : finset α) i < t,
     (((sample_space α m t).filter (λ (W : ℕ → finset α), W i ⊆ R)).card : ℝ) ≤
       ((64 * ε) ^ (m - R.card) / (fintype.card α).choose R.card) * (sample_space α m t).card) :
-  ∑ W in sample_space α m t, ∑ u in U, ((the_function W 𝒮 t).card : ℝ) <
-    1 / 8 * (sample_space α m t).card * U.card :=
+  𝔼 W in sample_space α m t, 𝔼 u in U, ((shadow (the_function W 𝒮 t) u).card : ℝ) < 1 / 8 :=
 begin
   sorry
 end
 
-  -- finset.card (((partitions_on finset.univ m t).product U).filter _)
+lemma cor1 {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}
+  (hm : 1 ≤ m) (ht : 1 ≤ t) (hε : 0 < ε) (hn : ε ≤ m / 64 * fintype.card α)
+  (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U) :
+  𝔼 W in finset.univ.powerset_len (m * t),
+    𝔼 Ws in partitions_on W m t,
+      𝔼 u in U, ((shadow (the_function Ws 𝒮 t) u).card : ℝ) < 1 / 8 ∧
+  ∀ W, (∃ S ∈ 𝒮, S ⊆ W) ∨ ∀ Ws ∈ partitions_on W m t, ∀ S ∈ 𝒮, ∃ X ∈ the_function Ws 𝒮 t, X ⊆ S :=
+begin
+  sorry
+end
 
+-- the things from here down are Bhavik's proofs of stuff which is now (probably) not necessary
+-- but I'm keeping them just in case they turn out useful
 
 -- lemma part_one_one_easy_bit (R : finset α) (h : ¬ ∃ T ∈ the_partial_function W 𝒮 t i, T ⊆ R) :
 --   ((the_partial_function W 𝒮 t i).filter (λ T, R = T ∪ W i)).card ≤ 2 ^ (2 ^ (t - i)) :=
@@ -469,8 +490,8 @@ begin
 end
 
 
-theorem Cor2 (S : finset (finset α) )( k:ℕ )(hSk : ∀T∈S, finset.card T = k) (hk : 2 ≤ k)
-( ε:ℝ ) (he : 0 ≤ ε ) (hspr : spread ε S) : ∃(T : finset (finset α ) ),
+theorem Cor2 (S : finset (finset α) )( k:ℕ )(hSk : ∀T∈S, finset.card T = k) 
+( ε:ℝ ) (he : 0 ≤ ε ) (hspr : spread ε S) : 2 ≤ k →  ∃(T : finset (finset α ) ),
  (T ⊆ S) ∧  (∀ B₁  B₂ ∈ T, B₁ ≠ B₂ →  disjoint B₁ B₂ ) ∧  (2^(-9 : ℝ )*ε⁻¹/(real.logb  2 k) ≤ T.card ) :=
 begin
   set t:= nat.ceil (real.logb 2 k) with ht,
@@ -492,38 +513,97 @@ begin
 sorry
 end
 
---different index. We use w+1 , k+1 instead of w, k. Then we can have induction from k=1,
+--Using different index. We use w+1 , k+1 for w, k in the paper. Then we can have induction from k=1,
 --and we don't need the prooves that 1 ≤ w,k.
 
 def sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (num_petal: ℕ ) : Prop := 
   (finset.card S = num_petal) ∧ (∃(C : finset α), ∀ P₁ P₂ ∈ S, P₁ ≠ P₂ →  P₁ ∩ P₂ = C)
 
-def Thm3 {w k : ℕ}{S: finset (finset α )} (hT : ∀ T ∈ S, finset.card T = k+1) 
+def Thm3 (w : ℕ)(k: ℕ ){S: finset (finset α )} (hT : ∀ T ∈ S, finset.card T = k+1) 
 : Prop :=  ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w+1 : ℝ )*(real.logb 2 (k+1)) ∧ (r^(k+1) ≤ S.card → ∃F⊆S, ( sunflower F (w+1))) 
 
+--#check finset.card_eq_one
 
-theorem Thm3' {w k : ℕ}{r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1) 
-: (w+1 : ℝ) ≤ r → (real.logb 2 (k+1) ≤ r * (2^9)⁻¹ * (w+1)⁻¹ ) →  (r^(k+1) ≤ finset.card S) → ∃F⊆S, ( sunflower F (w+1)) :=
+
+theorem Thm3' {w : ℕ}(k : ℕ ){r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1) 
+: (w+1 : ℝ) = r → (real.logb 2 (k+1) = r * (2^9)⁻¹ * (w+1)⁻¹ ) →  (r^(k+1) ≤ finset.card S) → ∃F⊆S, ( sunflower F (w+1)) :=
+-- I think r can be equal to 2^9 * w * log(k+1) and w+1 = r
 begin
-  intros hwr h_logkrw hrkS,
-  induction k,
+  induction k using nat.case_strong_induction_on with k ih generalizing S,
   {
     simp at *,
-    dunfold sunflower, -- why does it hold?
+    intros hwr h_log hrkS, --- I dont understand k=0 case.
+    have hU : ∃U ⊆ S, (finset.card U  = w+1) ∧ (∀ P₁ P₂ ∈ U, P₁ ≠ P₂ →  disjoint P₁ P₂),
+    { 
+      rw ← hwr at hrkS, norm_cast at hrkS, --push_cast
+      have tmp := exists_smaller_set S (w+1) hrkS,
+      cases tmp, use tmp_w,
+      split,
+      { exact tmp_h.1 },
+      {split, exact tmp_h.2,
+        intros P1 hP1 P2 hP2 h12,
+        have h_sing : ∀P ∈ tmp_w, finset.card P = 1 := 
+        begin  
+          rw subset_iff at tmp_h, intros P hPP, 
+          have hSS := tmp_h.1 hPP, exact hT P hSS,
+        end, 
+        obtain ⟨p1, rfl ⟩ := finset.card_eq_one.1 (h_sing P1 hP1),
+        obtain ⟨p2, rfl ⟩:= finset.card_eq_one.1 (h_sing P2 hP2),
+        simp,
+        intro P12,
+        exact h12 (finset.singleton_inj.2 P12),
+      },
+    },
     
-  sorry
+    rcases hU with ⟨U,hU1,hU2,hU3⟩,
+    use U, split, exact hU1,
+    split, exact hU2,
+    use ∅,
+    simp only [ finset.disjoint_iff_inter_eq_empty] at hU3,
+    exact hU3,
   },
-  {
-    by_contra, 
-    
+
+  { 
+    intros hwr hn hrkS,
+    by_contra, simp at h,  
+
+    -- S is not (r⁻¹)-spread 
+    have h_S_nspread : ¬(spread r⁻¹ S ),
+    {
+      by_contra htmp,
+      have k2tmp : 2 ≤ k + 2 := by linarith,
+      have rinv_pos : 0 ≤ r⁻¹ := begin rw ← hwr, apply le_of_lt, rw inv_pos, exact w.cast_add_one_pos,  end, 
+      have COR2:= Cor2 S (k+2) hT r⁻¹ rinv_pos htmp k2tmp,
+      rcases COR2 with ⟨Ttmp,hTT1, hTT2, hTT3⟩,
+      have hTtmpcard : (w+1) ≤ finset.card Ttmp,
+      {
+        simp at hn, simp at hTT3, 
+        sorry,
+      },
+      have Ttmptmp := exists_smaller_set Ttmp (w+1) tTtmpcard,
+      --apply (h T hTT1),
+      unfold sunflower,
+
+      sorry,
+    },
+
+
+
+    -- Construction of Z and S'
+
+    -- S'' is the sunflower
+
+    --S is the sunflower
+
+  
+
+
     sorry
   }
 end
 
-theorem Thm3_equiv {w k : ℕ}{r: ℝ}{S: finset (finset α )} (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k+1) 
-(hThm : Thm3' hT ) :  (Thm3 hT) :=
+theorem Thm3_equiv {w : ℕ}(k: ℕ ){r: ℝ}(S: finset (finset α )) (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k+1):  (Thm3 w k hT) :=
 begin
-  sorry
 end
 
 
