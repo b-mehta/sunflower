@@ -5,6 +5,9 @@ import probability.independence
 import probability.conditional_expectation
 import probability.notation
 import probability.cond_count
+import analysis.special_functions.log.base
+import data.nat.basic
+import data.finset.basic
 
 open finset set measure_theory probability_theory
 open_locale big_operators measure_theory ennreal probability_theory
@@ -111,7 +114,8 @@ end
 def spread (ε : ℝ) (U : finset (finset α)) : Prop :=
 ∀ (Z : finset α), (finset.card (U.filter (λ u, Z ⊆ u)) : ℝ) ≤ ε ^ Z.card * U.card
 
-def spr_1 (a b c : ℝ ) (hc : 0 < c ): (a≤ b) → (a/c ≤  b / c) :=
+----- Lemmas for spred_iff_ratio ---------------------
+def spr_1 (a b c : ℝ ) (hc : 0 < c ): (a≤ b) → (a/c ≤  b / c) := 
 begin
   intros h, exact (div_le_div_right hc).mpr h,
 end
@@ -125,13 +129,13 @@ begin
   split,
   {
     unfold spread,
-    intros h Z,
+    intros h Z, 
     cases nat.eq_zero_or_pos U.card, --patter match wrt U.card
 
     { --When U.card = 0
     have zz  : ∀ r : ℝ ,  r / (0: ℝ ) = 0 := λ r, div_zero r,
     rw h_1,
-
+    
     rw ← zer_zerco,
     rw zz,
     exact pow_nonneg he Z.card,
@@ -145,7 +149,7 @@ begin
     convert spr_1 ↑((filter (λ (u : finset α), Z ⊆ u) U).card)  (ε^(Z.card) * ↑(U.card)) ↑(U.card) (nat.cast_pos.mpr h_1) h,
     symmetry,
     apply mul_div_cancel,
-    exact ne_of_gt ( nat.cast_pos.mpr h_1),
+    exact ne_of_gt ( nat.cast_pos.mpr h_1),  
     }
   },
 
@@ -153,15 +157,15 @@ begin
     unfold spread,
     intros h Z,
     specialize h Z,
-
-    have hUcard : 0 ≤ (U.card : ℝ ) :=
+    
+    have hUcard : 0 ≤ (U.card : ℝ ) := 
     begin
       rw zer_zerco,
       exact nat.cast_le.mpr(zero_le (U.card )),
     end,
 
     have H := mul_le_mul_of_nonneg_right h hUcard,
-
+    
     cases nat.eq_zero_or_pos U.card,
     { -- When U.card = 0
       have fil_zero : (filter (λ (u : finset α), Z ⊆ u) U).card =0,
@@ -174,15 +178,15 @@ begin
 
       rw fil_zero, rw h_1, simp,
     },
-
+    
     { -- When U.card > 0
       rw div_mul_cancel ↑((filter (λ (u : finset α), Z ⊆ u) U).card) at H,
       exact H,
       exact ne_of_gt ( nat.cast_pos.mpr h_1),
     }
 
-
-
+    
+    
   }
 end
 
@@ -211,7 +215,7 @@ end
 
 lemma to_antichain_subset : to_antichain G ⊆ G :=
 begin
-  apply finset.filter_subset,
+  apply filter_subset,
 end
 
 lemma is_antichain_to_antichain : is_antichain (⊆) (to_antichain G : set (finset α)) :=
@@ -426,44 +430,110 @@ end
 --   -- apply part_one_one_other_easy_bit _ h₁,
 -- end
 
-#exit
-
+--#exit
+/-
 -- variables {Ω : Type*} [measurable_space Ω] {μ : measure Ω}
 
--- instance {α : Type*} : measurable_space (finset α) := ⊤
+lemma exists_uniform' (ε : ℝ) (U : finset (finset α)) : ∃ (μ : measure (finset α))
+  (UU : finset α → finset α), pdf.is_uniform UU (U : set (finset α)) μ measure.count :=
+⟨_, _, exists_uniform _ _ measurable_space.measurable_set_top⟩
 
--- def spread_distribution (μ : measure Ω) (ε : ℝ) (UU : Ω → finset α) : Prop :=
--- ∀ Z : finset α, (μ {ω | Z ⊆ UU ω}).to_real ≤ ε ^ Z.card
 
--- lemma spread_iff_uniform (ε : ℝ) (U : finset (finset α)) (UU : Ω → finset α)
---   (hUU : pdf.is_uniform UU (U : set (finset α)) μ measure.count) :
---   spread ε U ↔ spread_distribution μ ε UU :=
--- by sorry -- TODO: Bhavik
+--notation X ` ⊈ ` Y := ¬ (X ⊆ Y)
+-/
+-------------------------------------------------------------------------
+theorem Lem2 (S : finset (finset α)) (W : finset(finset α) ) (t m: ℕ )
+(hel : ∀T ∈ S, (finset.card T:ℝ ) ≤ (2^t:ℝ ) ) (h_sp : spread (m*64⁻¹ / (fintype.card α )⁻¹) S):
+--(hW  : finset.card W = m * t) :
+  (finset.card (W.filter (λ w, ∀T ∈ S, ¬ (T ⊆  w) )) : ℝ) ≤ (nat.choose (fintype.card α) (m*t)) / 8:=
+-- having trouble in `uniformly random set of size mt` W part
+-- I don't know why (λ w, ∀T ∈ S, T ⊈ W ) has an error
+begin
+  sorry
+end
 
--- lemma exists_uniform {E : Type*} [measurable_space E] (s : set E) (μ : measure E) [sigma_finite μ]
---   (hs : measurable_set s) :
---   pdf.is_uniform id s (μ[|s]) μ :=
--- begin
---   haveI : has_pdf (id : E → E) (μ[|s]) μ,
---   { refine ⟨⟨measurable_id, s.indicator ((μ s)⁻¹ • 1), _, _⟩⟩,
---     { refine measurable.indicator _ hs,
---       refine measurable_one.const_smul _ },
---     rw [with_density_indicator hs, with_density_smul _ measurable_one, with_density_one,
---       measure.map_id],
---     refl },
---   change _ =ᵐ[_] _,
---   apply ae_eq_of_forall_set_lintegral_eq_of_sigma_finite,
---   { apply measurable_pdf },
---   { exact (measurable_one.const_smul _).indicator hs },
---   intros A hA hA',
---   rw [←map_eq_set_lintegral_pdf (id : E → E) (μ[|s]) μ hA],
---   rw lintegral_indicator _ hs,
---   rw measure.map_id,
---   simp only [pi.smul_apply, pi.one_apply, algebra.id.smul_eq_mul, mul_one, lintegral_const,
---     measure.restrict_apply, measurable_set.univ, set.univ_inter],
---   rw [cond_apply _ hs, measure.restrict_apply hs],
--- end
+theorem Cor2_easyver (S : finset (finset α) )(n k w m:ℕ )(hSk : ∀T∈S, finset.card T = k) (hk : 2 ≤ k)
+(hn : n = 2*w*m*t) ( ε:ℝ ) (he : 0 ≤ ε ) (hspr : spread ε S) : 
+ ∃(T : finset (finset α ) ),  (T ⊆ S) ∧  (∀ B₁  B₂ ∈ T, B₁ ≠ B₂ →  disjoint B₁ B₂ ) 
+ ∧ (2^(-9 : ℝ )*ε⁻¹/(real.logb  2 k) ≤ T.card ) :=
+begin
+  set t:= nat.ceil (real.logb 2 k) with ht,
+  have h_t_le : real.logb 2 k ≤ t,
+  {
+    rw ht, exact nat.le_ceil (real.logb 2 ↑k),
+  },
+  
+  
+  sorry
 
--- lemma exists_uniform' (ε : ℝ) (U : finset (finset α)) : ∃ (μ : measure (finset α))
---   (UU : finset α → finset α), pdf.is_uniform UU (U : set (finset α)) μ measure.count :=
--- ⟨_, _, exists_uniform _ _ measurable_space.measurable_set_top⟩
+end
+
+
+theorem Cor2 (S : finset (finset α) )( k:ℕ )(hSk : ∀T∈S, finset.card T = k) (hk : 2 ≤ k)
+( ε:ℝ ) (he : 0 ≤ ε ) (hspr : spread ε S) : ∃(T : finset (finset α ) ),
+ (T ⊆ S) ∧  (∀ B₁  B₂ ∈ T, B₁ ≠ B₂ →  disjoint B₁ B₂ ) ∧  (2^(-9 : ℝ )*ε⁻¹/(real.logb  2 k) ≤ T.card ) :=
+begin
+  set t:= nat.ceil (real.logb 2 k) with ht,
+  have h_t_le : real.logb 2 k ≤ t := nat.le_ceil (real.logb 2 ↑k),
+  
+  
+--Choose random partiiton of [n]
+
+--Lemma2 is applicable
+
+--Apply Lemma 2
+
+--Expectation > w implies actual such case
+
+--use the right T
+
+--split,
+
+sorry
+end
+
+--different index. We use w+1 , k+1 instead of w, k. Then we can have induction from k=1,
+--and we don't need the prooves that 1 ≤ w,k.
+
+def sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (num_petal: ℕ ) : Prop := 
+  (finset.card S = num_petal) ∧ (∃(C : finset α), ∀ P₁ P₂ ∈ S, P₁ ≠ P₂ →  P₁ ∩ P₂ = C)
+
+def Thm3 {w k : ℕ}{S: finset (finset α )} (hT : ∀ T ∈ S, finset.card T = k+1) 
+: Prop :=  ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w+1 : ℝ )*(real.logb 2 (k+1)) ∧ (r^(k+1) ≤ S.card → ∃F⊆S, ( sunflower F (w+1))) 
+
+
+theorem Thm3' {w k : ℕ}{r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1) 
+: (w+1 : ℝ) ≤ r → (real.logb 2 (k+1) ≤ r * (2^9)⁻¹ * (w+1)⁻¹ ) →  (r^(k+1) ≤ finset.card S) → ∃F⊆S, ( sunflower F (w+1)) :=
+begin
+  intros hwr h_logkrw hrkS,
+  induction k,
+  {
+    simp at *,
+    dunfold sunflower, -- why does it hold?
+    
+  sorry
+  },
+  {
+    by_contra, 
+    
+    sorry
+  }
+end
+
+theorem Thm3_equiv {w k : ℕ}{r: ℝ}{S: finset (finset α )} (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k+1) 
+(hThm : Thm3' hT ) :  (Thm3 hT) :=
+begin
+  sorry
+end
+
+
+
+
+/-theorem Thm3 {w k : ℕ}{S: finset (finset α )} (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k) 
+: ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w : ℝ )*(real.logb 2 k) ∧ 
+(r^k ≤ S.card → ∃F⊆S, ( sunflower F w)) :=
+begin
+
+sorry
+
+end -/ 
