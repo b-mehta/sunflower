@@ -312,7 +312,21 @@ end
 
 lemma is_antichain_to_antichain : is_antichain (⊆) (to_antichain G : set (finset α)) :=
 begin
-  sorry
+  intros A h1 B h2 h3 h4,
+  unfold to_antichain at h1,
+  rw finset.mem_coe at h1,
+  rw finset.mem_filter at h1,
+  cases h1 with h5 h6,
+  specialize h6 B,
+  unfold to_antichain at h2,
+  rw finset.mem_coe at h2,
+  rw finset.mem_filter at h2,
+  cases h2 with h7 h8,
+  specialize h8 A,
+  have h9 := h8(h5),
+  have h11 := h9(h4),
+  apply h3,
+  exact h11,
 end
 
 -- mathematically solvable by induction on cardinality of A
