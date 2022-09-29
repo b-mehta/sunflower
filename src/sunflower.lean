@@ -9,10 +9,10 @@ import analysis.special_functions.log.base
 import data.nat.basic
 import data.finset.basic
 
-open finset set measure_theory probability_theory
+open finset measure_theory probability_theory
 open_locale big_operators measure_theory ennreal
 
-variables {α : Type*} [fintype α] [decidable_eq α]
+variables {α : Type*} [decidable_eq α]
 variables {𝒮 : finset (finset α)} {G : finset (finset α)} {U : finset α} {t : ℕ}
 
 section partition
@@ -52,6 +52,7 @@ section partition
   --   Wj for j < t has cardinality m
   --   the collection {Wj for j < t} is pairwise disjoint
   -- In most cases we will have `s` as our entire finite universe
+  -- NOTE the union of the Wj might not be s
 
   -- This is not a standard way of defining partitions, but it is *vital* for ours to be ordered
   -- so I use this version
@@ -96,7 +97,201 @@ section partition
       exact ⟨λ i hi, ⟨hf₃ _, hf₁ _ hi⟩, hf₂, λ i _ j _, hf₄ i j⟩ }
   end
 
+  lemma partitions_on_zero {s : finset α} {m : ℕ} :
+    partitions_on s m 0 = {λ _, ∅} :=
+  begin
+    ext,
+    split,
+    { rw mem_partitions_on,
+      intro h,
+      rcases h with ⟨h1, h2, h3⟩,
+      norm_num,
+      ext1,
+      have hx : 0 ≤ x := by linarith,
+      exact h2 x hx, },
+    { intro h,
+      rw mem_partitions_on,
+      refine ⟨_, _, _⟩,
+      { intros i hi,
+        norm_num at h,
+        simp only [h, empty_subset, card_empty, true_and],
+        linarith, }, 
+      { intros i hi,
+        norm_num at h,
+        rw h, },
+      { intros i hi j hj hij,
+        norm_num at h,
+        simp only [h, disjoint_empty_right], }, },
+  end
+
+  lemma subset_of_mem_partitions_on {m t : ℕ} {s : finset α} {f : ℕ → finset α}
+    (hf : f ∈ partitions_on s m t) :
+    (range t).bUnion f ⊆ s :=
+  begin
+    simp only [bUnion_subset, finset.mem_range],
+    intros i hi,
+    exact (((mem_partitions_on f).1 hf).1 i hi).1,
+  end
+
+  lemma card_bUnion_of_mem_partitions_on {m t : ℕ} {s : finset α} {f : ℕ → finset α}
+    (hf : f ∈ partitions_on s m t) :
+    ((range t).bUnion f).card = m * t :=
+  begin
+    rw mem_partitions_on at hf,
+    rw [card_bUnion, mul_comm, finset.sum_const_nat, card_range],
+    { intros i hi,
+      exact (hf.1 i (by simpa using hi)).2 },
+    simpa only [mem_range] using hf.2.2,
+  end
+
+  def split_partition (f : ℕ → finset α) : (ℕ → finset α) × finset α := (λ i, f (i+1), f 0)
+  lemma split_partition_bij :
+    function.bijective (split_partition : (ℕ → finset α) → (ℕ → finset α) × finset α) :=
+  begin
+    split,
+    { intros f₁ f₂ h,
+      ext n : 1,
+      simp only [split_partition, prod.mk.inj_iff] at h,
+      cases n,
+      { exact h.2 },
+      have := function.funext_iff.1 h.1 n,
+      exact this },
+    rintro ⟨f₁, f₂⟩,
+    exact ⟨λ n, nat.cases_on n f₂ f₁, rfl⟩,
+  end
+
+  lemma split_partition_strong_surj {s : finset α} {m t} (f₁ : ℕ → finset α) (f₂ : finset α)
+    (hf₁ : f₁ ∈ partitions_on s m t) (hf₂ : f₂ ⊆ s \ (range t).bUnion f₁)
+    (hf₃ : f₂.card = m) :
+    ∃ f : ℕ → finset α, f ∈ partitions_on s m (t + 1) ∧
+      (split_partition f).fst = f₁ ∧ (split_partition f).snd = f₂ :=
+  begin
+    refine ⟨λ n, nat.cases_on n f₂ f₁, _, rfl, rfl⟩,
+    rw mem_partitions_on,
+    refine ⟨_, _, _⟩,
+    { intros i hi,
+      refine ⟨_, _⟩,
+      { cases i,
+        { dsimp only,
+          exact subset_trans hf₂ (finset.sdiff_subset s _), },
+        { dsimp only,
+          have hit : i < t,
+          { rw nat.succ_eq_add_one at hi,
+            linarith, },
+          rw mem_partitions_on at hf₁,
+          rcases hf₁ with ⟨h1, h2, h3⟩,
+          exact (h1 i hit).1, }, },
+      { cases i,
+        { dsimp only,
+          exact hf₃, },
+        { dsimp only,
+          have hit : i < t,
+          { rw nat.succ_eq_add_one at hi, linarith, },
+          rw mem_partitions_on at hf₁,
+          rcases hf₁ with ⟨h1, h2, h3⟩,
+          exact (h1 i hit).2, }, }, },
+    { intros i hi,
+      cases i,
+      { dsimp only,
+        exfalso,
+        linarith, },
+      { dsimp only,
+        have hit : i ≥ t,
+        { rw nat.succ_eq_add_one at hi, linarith, },
+        rw mem_partitions_on at hf₁,
+        rcases hf₁ with ⟨h1, h2, h3⟩,
+        exact h2 i hit, }, },
+    { intros i hi j hj hij,
+      rw mem_partitions_on at hf₁,
+      rcases hf₁ with ⟨h1, h2, h3⟩,
+      cases i,
+      { cases j,
+        { exfalso,
+          norm_cast at hij, },
+        { dsimp only,
+          have hjt : j < t,
+          { rw nat.succ_eq_add_one at hj, linarith, },
+          suffices : disjoint f₂ ((range t).bUnion f₁),
+          { have h : f₁ j ⊆ (range t).bUnion f₁,
+            { apply finset.subset_bUnion_of_mem, 
+              exact mem_range.mpr hjt, },
+            apply finset.disjoint_of_subset_right h, 
+            exact this, },
+          { apply finset.disjoint_of_subset_left hf₂,
+            exact finset.sdiff_disjoint, }, }, },
+      { cases j,
+        { dsimp only,
+          have hit : i < t,
+          { rw nat.succ_eq_add_one at hi, linarith, },
+          suffices : disjoint ((range t).bUnion f₁) f₂,
+          { have h : f₁ i ⊆ (range t).bUnion f₁,
+            { apply finset.subset_bUnion_of_mem, 
+              exact mem_range.mpr hit, },
+            apply finset.disjoint_of_subset_left h, 
+            exact this, },
+          { apply finset.disjoint_of_subset_right hf₂,
+            exact finset.disjoint_sdiff, }, },
+        { dsimp only,
+          have hij' : i ≠ j,
+          { simpa only [ne.def, add_left_inj] using hij, },
+          have hi' : i < t,
+          { rw nat.succ_eq_add_one at hi, linarith, },
+          have hj' : j < t,
+          { rw nat.succ_eq_add_one at hj, linarith, },
+          exact h3 i hi' j hj' hij', }, }, },
+  end
+
+  example (a b : finset α) : disjoint a b ↔ disjoint b a :=
+  begin
+    exact disjoint.comm
+  end
+
+
+  -- state and prove that if `f ∈ partitions_on s m t`, then these three are true
+  -- (split_partition f).1 ∈ partitions_on s m t
+  -- (split_partition f).2 ⊆ s \ (range t).bUnion (split_partition f).1
+  -- (split_partition f).2.card = m
+
+  lemma card_partitions_on {s : finset α} {m t : ℕ} :
+    (partitions_on s m t).card = ∏ i in range t, (s.card - m * i).choose m :=
+  begin
+    induction t with t ih,
+    { rw [finset.range_zero, finset.prod_empty, partitions_on_zero, finset.card_singleton] },
+    rw [finset.prod_range_succ, ←ih],
+    let extension : finset (Σ (i : ℕ → finset α), finset α) :=
+      (partitions_on s m t).sigma (λ f, (s \ (range t).bUnion f).powerset_len m),
+    have : extension.card = (partitions_on s m t).card * (s.card - m * t).choose m,
+    { simp only [finset.card_sigma, finset.card_powerset_len],
+      have : ∀ f ∈ partitions_on s m t,
+        (s \ (range t).bUnion f).card.choose m = (s.card - m * t).choose m,
+      { intros f hf,
+        have : (range t).bUnion f ⊆ s,
+        { apply subset_of_mem_partitions_on hf },
+        rw [card_sdiff this, card_bUnion_of_mem_partitions_on hf] },
+      rw [sum_congr rfl this, sum_const, smul_eq_mul] },
+    rw ←this,
+    refine card_congr (λ f _, ⟨(split_partition f).1, (split_partition f).2⟩) _ _ _,
+    { intros f hf,
+      rw mem_partitions_on' at hf,
+      simp only [extension, mem_sigma, mem_powerset_len],
+      
+      sorry },
+    { rintro f₁ f₂ hf₁ hf₂,
+      simp only [heq_iff_eq, and_imp],
+      intros h₁ h₂,
+      refine split_partition_bij.1 _,
+      ext : 1; assumption },
+    rintro ⟨f₁, f₂⟩,
+    simp only [mem_sigma, sigma.mk.inj_iff, heq_iff_eq, exists_prop, and_imp,
+      mem_powerset_len],
+    apply split_partition_strong_surj,
+  end
+
+  -- ((partitions_on s m t).filter (λ f : ℕ → finset α, f 0 = V)).card = sorry :=
+
 end partition
+
+#exit
 
 def shadow (G : finset (finset α)) (U : finset α) : finset (finset α) := G.filter (λ Y, Y ⊆ U)
 
@@ -220,7 +415,21 @@ end
 
 lemma is_antichain_to_antichain : is_antichain (⊆) (to_antichain G : set (finset α)) :=
 begin
-  sorry
+  intros A h1 B h2 h3 h4,
+  unfold to_antichain at h1,
+  rw finset.mem_coe at h1,
+  rw finset.mem_filter at h1,
+  cases h1 with h5 h6,
+  specialize h6 B,
+  unfold to_antichain at h2,
+  rw finset.mem_coe at h2,
+  rw finset.mem_filter at h2,
+  cases h2 with h7 h8,
+  specialize h8 A,
+  have h9 := h8(h5),
+  have h11 := h9(h4),
+  apply h3,
+  exact h11,
 end
 
 -- mathematically solvable by induction on cardinality of A
@@ -372,6 +581,7 @@ lemma expectation_eq {α M : Type*} [field M] {s : finset α} {f : α → M} :
   𝔼 x in s, f x = ∑ x in s, f x / s.card :=
 by rw [finset.expectation, sum_div]
 
+variables [fintype α]
 
 lemma thm1_part_one {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}
   (hm : 1 ≤ m) (ht : 1 ≤ t) (hε : 0 < ε)
