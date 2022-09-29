@@ -181,8 +181,6 @@ begin
       exact ne_of_gt ( nat.cast_pos.mpr h_1),
     }
 
-
-
   }
 end
 
@@ -215,7 +213,7 @@ begin
 end
 
 lemma is_antichain_to_antichain : is_antichain (⊆) (to_antichain G : set (finset α)) :=
-begin
+begin  
   sorry
 end
 
