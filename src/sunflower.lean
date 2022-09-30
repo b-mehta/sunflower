@@ -695,7 +695,7 @@ begin
     exact bound_simp,},
   exact final,
 end
-
+/-
 lemma thm1_part_two (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) (ht : 1 ≤ t) :
   (∃ S ∈ 𝒮, S ⊆ (range t).bUnion W) ∨ ∀ S ∈ 𝒮, ∃ X ∈ the_function W 𝒮 t, X ⊆ S :=
 begin
@@ -781,7 +781,7 @@ begin
     have a_w_sub_hs_w:a\ (range t).bUnion W ⊆ hs\ (range t).bUnion W := (finset.mem_filter.1 a_in_s').2.1,
     have hs_w_sub_hs: hs\ (range t).bUnion W ⊆ hs := finset.sdiff_subset hs ((range t).bUnion W),
     exact finset.subset.trans a_w_sub_hs_w hs_w_sub_hs,}
-end
+end-/
 
 
 def sample_space (α : Type*) [fintype α] [decidable_eq α] (m t : ℕ) :=
@@ -1075,7 +1075,6 @@ def sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (num_peta
 def Thm3 (w : ℕ)(k: ℕ ){S: finset (finset α )} (hT : ∀ T ∈ S, finset.card T = k+1)
 : Prop :=  ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w+1 : ℝ )*(real.logb 2 (k+1)) ∧ (r^(k+1) ≤ S.card → ∃F⊆S, ( sunflower F (w+1)))
 
---#check finset.card_eq_one
 
 def smaller_sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (Z : finset α) : finset (finset α ) :=
 S.image (λ s, s \ Z)
@@ -1110,7 +1109,8 @@ begin
   },
 end
 
-theorem Thm3' {w : ℕ}(k : ℕ ){r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1)
+
+theorem Thm3' {w : ℕ}(k : ℕ ){r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1) 
 : (w+1 : ℝ) = r → (real.logb 2 (k+1) = r * (2^9)⁻¹ * (w+1)⁻¹ ) →  (r^(k+1) ≤ finset.card S) → ∃F⊆S, ( sunflower F (w+1)) :=
 -- I think r can be equal to 2^9 * w * log(k+1) and w+1 = r
 begin
@@ -1166,31 +1166,50 @@ begin
         sorry,
       },
       have Ttmptmp := exists_smaller_set Ttmp (w+1) hTtmpcard,
-      --apply (h T hTT1),
-      --unfold sunflower,
-
-      sorry,
+      rcases Ttmptmp with ⟨C, hC1, hC2 ⟩,
+      specialize h C (subset_trans hC1 hTT1),
+      apply h,
+      split, exact hC2,
+      use ∅,
+      intros P1 hP1 P2 hP2 h12, 
+      simp only [ finset.disjoint_iff_inter_eq_empty] at hTT2,
+      apply hTT2 P1 (subset_iff.1 hC1 hP1) P2 ( subset_iff.1 hC1 hP2) h12,
     },
 
-
-
     -- Construction of Z and S'
+    have hZ : ∃(Z:finset α), (finset.card (S.filter (λ s, Z ⊆ s)) : ℝ) > r^(k- finset.card Z),
+    {
+      by_contra h_con, simp at h_con,
+      apply h_S_nspread, 
+      unfold spread,
+      intros Z, 
+      specialize h_con Z, 
+      have temp : r ^ (k - Z.card) ≤ r⁻¹ ^ Z.card * ↑(S.card),
+      {
+        --use hrKS and hwr
+        sorry
+      },
+      convert (le_trans h_con temp),
+    },
+    rcases hZ with ⟨Z,hZ⟩,
+    --define S'
+    let S' := S.filter (λ s, Z ⊆ s), 
 
     -- S'' is the sunflower
-
+    have hSmall :  sunflower (smaller_sunflower S' Z) (w+1), --change that some subset of S' is a sunflower
+    {
+      sorry --nontrivial sorry but not hard
+    },
     --S is the sunflower
-
-
-
-
-    sorry
+    have h_contains_Z :  ∀ s ∈ S', Z ⊆ s,
+    {
+      intros s, rw finset.mem_filter, intros hs, exact hs.2,
+    },
+    have hSprime : sunflower S' (w+1) := (sunflower_iff_smaller (w+1) h_contains_Z).2 hSmall,
+    apply h S' (finset.filter_subset (λ s, Z ⊆ s) S) hSprime,
   }
 end
 
-theorem Thm3_equiv {w : ℕ}(k: ℕ ){r: ℝ}(S: finset (finset α )) (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k+1):  (Thm3 w k hT) :=
-begin
-  sorry
-end
 
 
 
