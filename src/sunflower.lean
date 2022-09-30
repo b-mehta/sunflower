@@ -872,7 +872,7 @@ def Thm3 (w : ℕ)(k: ℕ ){S: finset (finset α )} (hT : ∀ T ∈ S, finset.ca
 def smaller_sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (Z : finset α) : finset (finset α ) := 
 S.image (λ s, s \ Z)
 
-lemma sunflower_iff {S : finset (finset α)} {Z : finset α} (n: ℕ) (h : ∀ s ∈ S, Z ⊆ s) : 
+lemma sunflower_iff_smaller {S : finset (finset α)} {Z : finset α} (n: ℕ) (h : ∀ s ∈ S, Z ⊆ s) : 
   sunflower S n ↔ sunflower (smaller_sunflower S Z) n :=
 begin
   sorry
