@@ -321,8 +321,6 @@ section partition
 
 end partition
 
-#exit
-
 def shadow (G : finset (finset α)) (U : finset α) : finset (finset α) := G.filter (λ Y, Y ⊆ U)
 
 lemma shadow_subset : shadow G U ⊆ G :=
@@ -871,6 +869,14 @@ def Thm3 (w : ℕ)(k: ℕ ){S: finset (finset α )} (hT : ∀ T ∈ S, finset.ca
 
 --#check finset.card_eq_one
 
+def smaller_sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (Z : finset α) : finset (finset α ) := 
+S.image (λ s, s \ Z)
+
+lemma sunflower_iff {S : finset (finset α)} {Z : finset α} (n: ℕ) (h : ∀ s ∈ S, Z ⊆ s) : 
+  sunflower S n ↔ sunflower (smaller_sunflower S Z) n :=
+begin
+  sorry
+end
 
 theorem Thm3' {w : ℕ}(k : ℕ ){r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1) 
 : (w+1 : ℝ) = r → (real.logb 2 (k+1) = r * (2^9)⁻¹ * (w+1)⁻¹ ) →  (r^(k+1) ≤ finset.card S) → ∃F⊆S, ( sunflower F (w+1)) :=
