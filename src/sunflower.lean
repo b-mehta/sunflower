@@ -275,8 +275,7 @@ section partition
       rw mem_partitions_on' at hf,
       simp only [extension, mem_sigma, mem_powerset_len],
       refine ⟨_, _, _⟩,
-      { 
-        rcases hf with ⟨hf1, hf2, hf3⟩,
+      { rcases hf with ⟨hf1, hf2, hf3⟩,
         rw mem_partitions_on,
         refine ⟨_, _, _⟩,
         { intros i hi,
@@ -290,13 +289,23 @@ section partition
         { intros i hi j hj hij,
           apply hf3.2,
           exact (add_ne_add_left 1).mpr hij, }, },
-      { 
-        sorry
-      },
-      {
-        sorry
-      },
-    },
+      { change f 0 ⊆ s \ (range t).bUnion (split_partition f).fst,
+        rw finset.subset_iff,
+        intros x hx,
+        rw finset.mem_sdiff,
+        have hfs : f 0 ⊆ s,
+        { apply hf.2.2.1, },
+        simp only [finset.mem_of_subset hfs hx, mem_bUnion, mem_range, exists_prop, not_exists, not_and, true_and],
+        intros i hi,
+        by_contra c,
+        have hfd : disjoint (f 0) ((split_partition f).fst i),
+        { apply hf.2.2.2,
+          linarith, },
+        rw finset.disjoint_iff_ne at hfd,
+        specialize hfd x hx x c,
+        apply hfd, refl, },
+      { apply hf.1,
+        exact ne_zero.pos (nat.succ t), }, },
     { rintro f₁ f₂ hf₁ hf₂,
       simp only [heq_iff_eq, and_imp],
       intros h₁ h₂,
@@ -401,8 +410,6 @@ begin
       exact ne_of_gt ( nat.cast_pos.mpr h_1),
     }
 
-    
-    
   }
 end
 
