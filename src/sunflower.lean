@@ -115,7 +115,7 @@ section partition
       { intros i hi,
         norm_num at h,
         simp only [h, empty_subset, card_empty, true_and],
-        linarith, }, 
+        linarith, },
       { intros i hi,
         norm_num at h,
         rw h, },
@@ -213,9 +213,9 @@ section partition
           { rw nat.succ_eq_add_one at hj, linarith, },
           suffices : disjoint f₂ ((range t).bUnion f₁),
           { have h : f₁ j ⊆ (range t).bUnion f₁,
-            { apply finset.subset_bUnion_of_mem, 
+            { apply finset.subset_bUnion_of_mem,
               exact mem_range.mpr hjt, },
-            apply finset.disjoint_of_subset_right h, 
+            apply finset.disjoint_of_subset_right h,
             exact this, },
           { apply finset.disjoint_of_subset_left hf₂,
             exact finset.sdiff_disjoint, }, }, },
@@ -225,9 +225,9 @@ section partition
           { rw nat.succ_eq_add_one at hi, linarith, },
           suffices : disjoint ((range t).bUnion f₁) f₂,
           { have h : f₁ i ⊆ (range t).bUnion f₁,
-            { apply finset.subset_bUnion_of_mem, 
+            { apply finset.subset_bUnion_of_mem,
               exact mem_range.mpr hit, },
-            apply finset.disjoint_of_subset_left h, 
+            apply finset.disjoint_of_subset_left h,
             exact this, },
           { apply finset.disjoint_of_subset_right hf₂,
             exact finset.disjoint_sdiff, }, },
@@ -241,13 +241,7 @@ section partition
           exact h3 i hi' j hj' hij', }, }, },
   end
 
-  example (a b : finset α) : disjoint a b ↔ disjoint b a :=
-  begin
-    exact disjoint.comm
-  end
-
-
-  -- state and prove that if `f ∈ partitions_on s m t`, then these three are true
+  -- state and prove that if `f ∈ partitions_on s m (t+1)`, then these three are true
   -- (split_partition f).1 ∈ partitions_on s m t
   -- (split_partition f).2 ⊆ s \ (range t).bUnion (split_partition f).1
   -- (split_partition f).2.card = m
@@ -317,7 +311,92 @@ section partition
     apply split_partition_strong_surj,
   end
 
-  -- ((partitions_on s m t).filter (λ f : ℕ → finset α, f 0 = V)).card = sorry :=
+  lemma card_partition_fix_first {s : finset α} {m t : ℕ} {V : finset α}
+    (hV : V.card = m) (hV' : V ⊆ s) :
+    ((partitions_on s m (t + 1)).filter (λ f : ℕ → finset α, f 0 = V)).card =
+      (partitions_on (s \ V) m t).card :=
+  begin
+    refine card_congr (λ f _, (split_partition f).1) _ _ _,
+    { simp only [mem_filter, and_imp],
+      rintro f hf rfl,
+      rw [mem_partitions_on'] at hf ⊢,
+      refine ⟨λ i hi, hf.1 _ (by simpa using hi), λ i hi, hf.2.1 _ (by simpa using hi),
+        _, λ i j h, hf.2.2.2 (i+1) (j+1) (by simpa using h)⟩,
+      intros i x hx,
+      rw [mem_sdiff],
+      exact ⟨hf.2.2.1 _ hx, disjoint_left.1 (hf.2.2.2 (i+1) 0 (nat.succ_ne_zero _)) hx⟩ },
+    { simp only [mem_filter, and_imp],
+      intros f₁ f₂ hf₁ h₁ hf₂ h₂ h,
+      refine split_partition_bij.1 _,
+      ext : 1,
+      { exact h },
+      rw [split_partition, split_partition],
+      exact h₁.trans h₂.symm },
+    { simp only [mem_filter, exists_prop],
+      intros f hf,
+      refine ⟨λ n, nat.cases_on n V f, ⟨_, rfl⟩, rfl⟩,
+      rw [mem_partitions_on'],
+      sorry -- xialu
+      },
+  end
+
+  lemma partition_swap {s : finset α} {m t : ℕ} {f : ℕ → finset α} (hf : f ∈ partitions_on s m t)
+    {i j : ℕ} (hi : i < t) (hj : j < t) :
+    f ∘ equiv.swap i j ∈ partitions_on s m t :=
+  begin
+    rw mem_partitions_on' at hf ⊢,
+    refine ⟨λ k hk, hf.1 _ _, λ k hk, hf.2.1 _ _, λ k, hf.2.2.1 _, λ _ _ h, hf.2.2.2 _ _ _⟩,
+    { rcases eq_or_ne k i with rfl | ik,
+      { rwa equiv.swap_apply_left },
+      rcases eq_or_ne k j with rfl | jk,
+      { rwa equiv.swap_apply_right },
+      rwa equiv.swap_apply_of_ne_of_ne ik jk },
+    { rwa equiv.swap_apply_of_ne_of_ne (hi.trans_le hk).ne' (hj.trans_le hk).ne' },
+    { simpa using h },
+  end
+
+  lemma card_partition_fix_swap {s : finset α} {m t : ℕ} {V : finset α} {i j : ℕ}
+    (hi : i < t) (hj : j < t) :
+    ((partitions_on s m t).filter (λ f : ℕ → finset α, f i = V)).card =
+      ((partitions_on s m t).filter (λ f : ℕ → finset α, f j = V)).card :=
+  begin
+    refine card_congr (λ f _, f ∘ equiv.swap i j) _ _ _,
+    { simp only [mem_filter, function.comp_app, equiv.swap_apply_right, and_imp],
+      intros f hf hf',
+      refine ⟨_, hf'⟩,
+      apply partition_swap hf hi hj },
+    { intros f₁ f₂ _ _ h,
+      refine function.surjective.injective_comp_right _ h,
+      apply equiv.surjective },
+    intros f hf,
+    simp only [mem_filter, exists_prop, and_assoc] at hf ⊢,
+    refine ⟨f ∘ equiv.swap i j, partition_swap hf.1 hi hj, _, _⟩,
+    { simpa using hf.2 },
+    ext x : 1,
+    simp [equiv.swap_apply_self],
+  end
+
+  lemma card_partition_fix' {s : finset α} {m t : ℕ} {V : finset α}
+    (hV : V.card = m) (hV' : V ⊆ s) {i : ℕ} (hi : i < t + 1) :
+    ((partitions_on s m (t + 1)).filter (λ f : ℕ → finset α, f i = V)).card *
+      s.card.choose m =
+      (partitions_on s m (t + 1)).card :=
+  begin
+    rw [card_partition_fix_swap hi nat.succ_pos', card_partition_fix_first hV hV',
+      card_partitions_on, card_partitions_on, card_sdiff hV', hV, finset.prod_range_succ', mul_zero,
+      nat.sub_zero],
+    simp only [mul_add_one, nat.sub_sub, add_comm],
+  end
+
+  lemma card_partition_fix {s : finset α} {m t : ℕ} {V : finset α}
+    (hV : V.card = m) (hV' : V ⊆ s) {i : ℕ} (hi : i < t) :
+    ((partitions_on s m t).filter (λ f : ℕ → finset α, f i = V)).card * s.card.choose m =
+      (partitions_on s m t).card :=
+  begin
+    cases t,
+    { simpa using hi },
+    apply card_partition_fix' hV hV' hi,
+  end
 
 end partition
 
@@ -338,7 +417,7 @@ def spread (ε : ℝ) (U : finset (finset α)) : Prop :=
 ∀ (Z : finset α), (finset.card (U.filter (λ u, Z ⊆ u)) : ℝ) ≤ ε ^ Z.card * U.card
 
 ----- Lemmas for spred_iff_ratio ---------------------
-def spr_1 (a b c : ℝ ) (hc : 0 < c ): (a≤ b) → (a/c ≤  b / c) := 
+def spr_1 (a b c : ℝ ) (hc : 0 < c ): (a≤ b) → (a/c ≤  b / c) :=
 begin
   intros h, exact (div_le_div_right hc).mpr h,
 end
@@ -352,13 +431,13 @@ begin
   split,
   {
     unfold spread,
-    intros h Z, 
+    intros h Z,
     cases nat.eq_zero_or_pos U.card, --patter match wrt U.card
 
     { --When U.card = 0
     have zz  : ∀ r : ℝ ,  r / (0: ℝ ) = 0 := λ r, div_zero r,
     rw h_1,
-    
+
     rw ← zer_zerco,
     rw zz,
     exact pow_nonneg he Z.card,
@@ -372,7 +451,7 @@ begin
     convert spr_1 ↑((filter (λ (u : finset α), Z ⊆ u) U).card)  (ε^(Z.card) * ↑(U.card)) ↑(U.card) (nat.cast_pos.mpr h_1) h,
     symmetry,
     apply mul_div_cancel,
-    exact ne_of_gt ( nat.cast_pos.mpr h_1),  
+    exact ne_of_gt ( nat.cast_pos.mpr h_1),
     }
   },
 
@@ -380,15 +459,15 @@ begin
     unfold spread,
     intros h Z,
     specialize h Z,
-    
-    have hUcard : 0 ≤ (U.card : ℝ ) := 
+
+    have hUcard : 0 ≤ (U.card : ℝ ) :=
     begin
       rw zer_zerco,
       exact nat.cast_le.mpr(zero_le (U.card )),
     end,
 
     have H := mul_le_mul_of_nonneg_right h hUcard,
-    
+
     cases nat.eq_zero_or_pos U.card,
     { -- When U.card = 0
       have fil_zero : (filter (λ (u : finset α), Z ⊆ u) U).card =0,
@@ -401,7 +480,7 @@ begin
 
       rw fil_zero, rw h_1, simp,
     },
-    
+
     { -- When U.card > 0
       rw div_mul_cancel ↑((filter (λ (u : finset α), Z ⊆ u) U).card) at H,
       exact H,
@@ -594,7 +673,7 @@ begin
   have proof_subset : ∀ x : finset α, ∀ y : finset α, (x \ y).card = 0 → x ⊆ y,
     {intros hx hy card,
     have proof_empty : hx \ hy = ∅ := iff.elim_left finset.card_eq_zero card,
-    have proof_final : hx ⊆ hy, 
+    have proof_final : hx ⊆ hy,
       {have temp1 := iff.elim_left finset.eq_empty_iff_forall_not_mem proof_empty,
       intros hx2 assump1,
       have assump2:hx2 ∉ hx \ hy := temp1 hx2,
@@ -617,90 +696,92 @@ begin
   exact final,
 end
 
--- lemma thm1_part_two (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) (ht : 1 ≤ t) :
---   (∃ S ∈ 𝒮, S ⊆ (range t).bUnion W) ∨ ∀ S ∈ 𝒮, ∃ X ∈ the_function W 𝒮 t, X ⊆ S :=
--- begin
---   by_contra,
---   have h := not_or_distrib.1 h,
---   have not_sub_w := h.1,
---   apply h.2,
---   intros hs el_s,
---   let set_s' := finset.filter (λ Y, Y \ ((range t).bUnion W) ⊆ hs \ ((range t).bUnion W) ∧ (∀ (j:ℕ), j< t-1 → ∀ X:finset α, X ∈ the_partial_function W 𝒮 t j → ¬ X ⊆ Y)) 𝒮,
---   by_contra assump,
---   have non_empt : (∃ x:finset α, x ∈ set_s'), 
---     {use hs,
---     rw finset.mem_filter,
---     split, {exact el_s,},
---       {split, {apply finset.subset_of_eq, refl,},
---         {intros j bound X in_g,
---         by_contra,
---         have assump_pf:∃ x2 ∈ the_function W 𝒮 t, x2 ⊆ hs, 
---           {use X,
---           split,
---             {rw the_function,
---             rw finset.mem_bUnion,
---             use j,
---             split, 
---               {rw finset.mem_range, 
---               linarith,}, 
---               {exact in_g,}},{exact h,}},
---         exact assump assump_pf,}}},
---   let rem_w := λ (x:finset α), x \ (range t).bUnion W,
---   let set_s'_map := finset.image rem_w set_s',
---   have non_empt_im:set_s'_map.nonempty := finset.nonempty.image non_empt rem_w, 
---   have ex_min := exists_subset_minimal non_empt_im,
---   cases ex_min with X ex_min,
---   cases ex_min with X_el ex_min,
---   apply assump,
---   use X,
---   have X_w := finset.mem_image.1 X_el,
---   cases X_w with a aw_eq_x,
---   cases aw_eq_x with a_in_s' func_a_x,
---   have rw_X:a\(range t).bUnion W = X,{exact func_a_x,},
---   have equality:t-1+1 = t, {linarith},
---   have a_in_s := finset.mem_of_mem_filter a a_in_s',
---   split, 
---     {rw the_function,
---     rw finset.mem_bUnion,
---     use t-1,
---     rw finset.mem_range, 
---     split, {linarith,},
---       {rw the_partial_function,
---       rw finset.mem_image,
---       use a,
---       split, 
---         {rw finset.mem_filter,
---         refine ⟨_,_,_,_⟩,
---           {exact a_in_s,},
---           {have rw_not_sub_w,
---             {have el_imply := ((not_exists.1 not_sub_w) a),
---             have el_imply_clean := not_exists.1 el_imply,
---             exact el_imply_clean a_in_s,},
---           have pow2_eq : ∀ (vr:ℕ), vr ≥ 1 → 2 ^ (vr-(vr-1)-1) = 2 ^ (vr-1 - (vr-1)), {intros vr ineq, finish,},
---           rw (pow2_eq t ht),
---           exact part_two_a_helper ht a rw_not_sub_w,},
---           {exact (finset.mem_filter.1 a_in_s').2.2,},
---           {rw equality,
---           intros hs' hs'_in_s hs'_sub,
---           have strict_sub_hs := finset.ssubset_of_ssubset_of_subset hs'_sub (finset.mem_filter.1 a_in_s').2.1,
---           by_contra minset_prop,
---           have sub_hs := (finset.ssubset_iff_subset_ne.1 strict_sub_hs).1,
---           have fulfills_minset_prop := and.intro sub_hs minset_prop,
---           have hs'_in_minset:hs' ∈ set_s' := finset.mem_filter.2 (and.intro hs'_in_s fulfills_minset_prop),
---           have hs'_w_in_minset_map:hs'\ (range t).bUnion W ∈ set_s'_map,{apply finset.mem_image.2,use hs',use hs'_in_minset,},
---           have s'_is_minset:hs'\ (range t).bUnion W = a\ (range t).bUnion W,
---             {rw rw_X,
---             have hs'_sub_x:hs'\ (range t).bUnion W ⊆ X,
---               {rw eq.symm rw_X, 
---               exact (finset.ssubset_iff_subset_ne.1 hs'_sub).1,},
---             exact ex_min (hs'\ (range t).bUnion W) hs'_w_in_minset_map hs'_sub_x,},
---           exact (finset.ssubset_iff_subset_ne.1 hs'_sub).2 s'_is_minset,}},
---         {rw equality,exact func_a_x,},},},
---     {rw eq.symm rw_X,
---     have a_w_sub_hs_w:a\ (range t).bUnion W ⊆ hs\ (range t).bUnion W := (finset.mem_filter.1 a_in_s').2.1,
---     have hs_w_sub_hs: hs\ (range t).bUnion W ⊆ hs := finset.sdiff_subset hs ((range t).bUnion W),
---     exact finset.subset.trans a_w_sub_hs_w hs_w_sub_hs,}
--- end
+lemma thm1_part_two (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) (ht : 1 ≤ t) :
+  (∃ S ∈ 𝒮, S ⊆ (range t).bUnion W) ∨ ∀ S ∈ 𝒮, ∃ X ∈ the_function W 𝒮 t, X ⊆ S :=
+begin
+  by_contra,
+  have h := not_or_distrib.1 h,
+  have not_sub_w := h.1,
+  apply h.2,
+  intros hs el_s,
+  let set_s' := finset.filter (λ Y, Y \ ((range t).bUnion W) ⊆ hs \ ((range t).bUnion W) ∧ (∀ (j:ℕ), j< t-1 → ∀ X:finset α, X ∈ the_partial_function W 𝒮 t j → ¬ X ⊆ Y)) 𝒮,
+  by_contra assump,
+  have non_empt : (∃ x:finset α, x ∈ set_s'),
+    {use hs,
+    rw finset.mem_filter,
+    split, {exact el_s,},
+      {split, {apply finset.subset_of_eq, refl,},
+        {intros j bound X in_g,
+        by_contra,
+        have assump_pf:∃ x2 ∈ the_function W 𝒮 t, x2 ⊆ hs,
+          {use X,
+          split,
+            {rw the_function,
+            rw finset.mem_bUnion,
+            use j,
+            split,
+              {rw finset.mem_range,
+              linarith,},
+              {exact in_g,}},{exact h,}},
+        exact assump assump_pf,}}},
+  let rem_w := λ (x:finset α), x \ (range t).bUnion W,
+  let set_s'_map := finset.image rem_w set_s',
+  have non_empt_im:set_s'_map.nonempty := finset.nonempty.image non_empt rem_w,
+  have ex_min := exists_subset_minimal non_empt_im,
+  cases ex_min with X ex_min,
+  cases ex_min with X_el ex_min,
+  apply assump,
+  use X,
+  have X_w := finset.mem_image.1 X_el,
+  cases X_w with a aw_eq_x,
+  cases aw_eq_x with a_in_s' func_a_x,
+  have rw_X:a\(range t).bUnion W = X,{exact func_a_x,},
+  have equality:t-1+1 = t, {rw nat.sub_add_cancel ht},
+  have a_in_s := finset.mem_of_mem_filter a a_in_s',
+  split,
+    {rw the_function,
+    rw finset.mem_bUnion,
+    use t-1,
+    rw finset.mem_range,
+    split, {linarith,},
+      {rw the_partial_function,
+      rw finset.mem_image,
+      use a,
+      split,
+        {rw finset.mem_filter,
+        refine ⟨_,_,_,_⟩,
+          {exact a_in_s,},
+          {have rw_not_sub_w,
+            {have el_imply := ((not_exists.1 not_sub_w) a),
+            have el_imply_clean := not_exists.1 el_imply,
+            exact el_imply_clean a_in_s,},
+          have pow2_eq : ∀ (vr:ℕ), vr ≥ 1 → 2 ^ (vr-(vr-1)-1) = 2 ^ (vr-1 - (vr-1)),
+          { intros vr ineq,
+            rw [nat.sub_self, nat.sub_sub, nat.sub_add_cancel ineq, nat.sub_self] },
+          rw (pow2_eq t ht),
+          exact part_two_a_helper ht a rw_not_sub_w,},
+          {exact (finset.mem_filter.1 a_in_s').2.2,},
+          {rw equality,
+          intros hs' hs'_in_s hs'_sub,
+          have strict_sub_hs := finset.ssubset_of_ssubset_of_subset hs'_sub (finset.mem_filter.1 a_in_s').2.1,
+          by_contra minset_prop,
+          have sub_hs := (finset.ssubset_iff_subset_ne.1 strict_sub_hs).1,
+          have fulfills_minset_prop := and.intro sub_hs minset_prop,
+          have hs'_in_minset:hs' ∈ set_s' := finset.mem_filter.2 (and.intro hs'_in_s fulfills_minset_prop),
+          have hs'_w_in_minset_map:hs'\ (range t).bUnion W ∈ set_s'_map,{apply finset.mem_image.2,use hs',use hs'_in_minset,},
+          have s'_is_minset:hs'\ (range t).bUnion W = a\ (range t).bUnion W,
+            {rw rw_X,
+            have hs'_sub_x:hs'\ (range t).bUnion W ⊆ X,
+              {rw eq.symm rw_X,
+              exact (finset.ssubset_iff_subset_ne.1 hs'_sub).1,},
+            exact ex_min (hs'\ (range t).bUnion W) hs'_w_in_minset_map hs'_sub_x,},
+          exact (finset.ssubset_iff_subset_ne.1 hs'_sub).2 s'_is_minset,}},
+        {rw equality,exact func_a_x,},},},
+    {rw eq.symm rw_X,
+    have a_w_sub_hs_w:a\ (range t).bUnion W ⊆ hs\ (range t).bUnion W := (finset.mem_filter.1 a_in_s').2.1,
+    have hs_w_sub_hs: hs\ (range t).bUnion W ⊆ hs := finset.sdiff_subset hs ((range t).bUnion W),
+    exact finset.subset.trans a_w_sub_hs_w hs_w_sub_hs,}
+end
 
 
 def sample_space (α : Type*) [fintype α] [decidable_eq α] (m t : ℕ) :=
@@ -729,12 +810,101 @@ begin
   sorry
 end
 
+lemma filter_const {α : Type*} (p : Prop) [decidable p] (s : finset α) :
+  s.filter (λ _, p) = if p then s else ∅ :=
+begin
+  by_cases p,
+  { rw [filter_true_of_mem (λ _ _, h), if_pos h] },
+  { rw [filter_false_of_mem (λ _ _, h), if_neg h] },
+end
+
+lemma powerset_filter_subset {α : Type*} [decidable_eq α] (n : ℕ) (s t : finset α) :
+  (powerset_len n s).filter (λ i, i ⊆ t) = (powerset_len n (s ∩ t)) :=
+by { ext x, simp [mem_powerset_len, subset_inter_iff, and.right_comm] }
+
+open_locale classical
+
+lemma partitions_on_eq {s : finset α} {m t} :
+  partitions_on s m t = (s.powerset_len (m * t)).bUnion (λ W, partitions_on W m t) :=
+begin
+  ext f,
+  simp only [mem_bUnion, exists_prop, mem_powerset_len, and_assoc],
+  split,
+  { rintro hf,
+    refine ⟨(range t).bUnion f, subset_of_mem_partitions_on hf, card_bUnion_of_mem_partitions_on hf,
+      _⟩,
+    simp only [mem_partitions_on],
+    simp only [mem_partitions_on'] at hf,
+    exact ⟨λ i hi, ⟨subset_bUnion_of_mem _ (by simpa using hi), hf.1 _ hi⟩, hf.2.1,
+      λ _ _ _ _ h, hf.2.2.2 _ _ h⟩ },
+  rintro ⟨W, hW, hW', hf⟩,
+  simp only [mem_partitions_on'] at hf ⊢,
+  exact ⟨hf.1, hf.2.1, λ i, (hf.2.2.1 _).trans hW, hf.2.2.2⟩,
+end
+
+lemma partitions_on_inj_on {m t : ℕ} {W₁ W₂ : finset α}
+  (hW₁ : W₁.card = m * t) (hW₂ : W₂.card = m * t) {f} :
+  f ∈ partitions_on W₁ m t → f ∈ partitions_on W₂ m t → W₁ = W₂ :=
+begin
+  intros hf₁ hf₂,
+  rw [←eq_of_subset_of_card_le (subset_of_mem_partitions_on hf₁),
+      ←eq_of_subset_of_card_le (subset_of_mem_partitions_on hf₂)],
+  { rw [hW₂, card_bUnion_of_mem_partitions_on hf₂] },
+  { rw [hW₁, card_bUnion_of_mem_partitions_on hf₁] },
+end
+
+lemma random_partition (R : finset α) {m i : ℕ} (hi : i < t) :
+  (fintype.card α).choose m *
+    ((sample_space α m t).filter (λ Ws : ℕ → finset α, Ws i ⊆ R)).card =
+      R.card.choose m * (sample_space α m t).card :=
+begin
+  have : ∀ (Ws : ℕ → finset α), Ws ∈ sample_space α m t →
+    Ws i ∈ powerset_len m (univ : finset α),
+  { simp only [mem_powerset_len_univ_iff, sample_space, mem_partitions_on', and_imp],
+    intros f hf _ _ _,
+    apply hf _ hi },
+  have := @finset.bUnion_filter_eq_of_maps_to _ _ _ _ (sample_space α m t)
+    (univ.powerset_len m) (λ f, f i) this,
+  conv_lhs {rw ←this},
+  rw [filter_bUnion, finset.card_bUnion],
+  { have : ∀ x ∈ powerset_len m (univ : finset α),
+      (((sample_space α m t).filter (λ (Ws : ℕ → finset α), Ws i = x)).filter
+        (λ (Ws : ℕ → finset α), Ws i ⊆ R)).card =
+      (((sample_space α m t).filter (λ (Ws : ℕ → finset α), Ws i = x)).filter
+        (λ _, x ⊆ R)).card,
+    { intros x hx,
+      rw [filter_filter, filter_filter],
+      congr' 2,
+      ext f,
+      simp { contextual := tt } },
+    rw [sum_congr rfl this],
+    simp only [filter_const, apply_ite finset.card, card_empty, sample_space],
+    rw [←sum_filter],
+    have : ∑ (a : finset α) in filter (λ (a : finset α), a ⊆ R) (powerset_len m univ),
+      (fintype.card α).choose m *
+        (filter (λ (Ws : ℕ → finset α), Ws i = a) (partitions_on univ m t)).card =
+      ∑ (a : finset α) in powerset_len m R, (partitions_on univ m t).card,
+    { apply finset.sum_congr _ _,
+      { convert (powerset_filter_subset m univ R).trans _,
+        rw univ_inter },
+      intros x hx,
+      rw [mul_comm, ←card_univ, card_partition_fix _ (subset_univ _) hi],
+      rw mem_powerset_len at hx,
+      exact hx.2 },
+    rw [mul_sum, this, sum_const, smul_eq_mul, card_powerset_len] },
+  simp only [mem_powerset_len_univ_iff],
+  intros W₁ hW₁ W₂ hW₂ h,
+  rw finset.disjoint_left,
+  simp only [mem_filter, not_and, and_imp],
+  rintro f _ rfl _ _ rfl,
+  cases h rfl
+end
+
 lemma cor1 {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}
   (hm : 1 ≤ m) (ht : 1 ≤ t) (hε : 0 < ε) (hn : ε ≤ m / 64 * fintype.card α)
   (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U) :
-  𝔼 W in finset.univ.powerset_len (m * t),
-    𝔼 Ws in partitions_on W m t,
-      𝔼 u in U, ((shadow (the_function Ws 𝒮 t) u).card : ℝ) < 1 / 8 ∧
+  𝔼 Ws in sample_space α m t,
+    𝔼 u in U, ((shadow (the_function Ws 𝒮 t) u).card : ℝ) < 1 / 8 ∧
   ∀ W, (∃ S ∈ 𝒮, S ⊆ W) ∨ ∀ Ws ∈ partitions_on W m t, ∀ S ∈ 𝒮, ∃ X ∈ the_function Ws 𝒮 t, X ⊆ S :=
 begin
   sorry
@@ -808,19 +978,57 @@ lemma exists_uniform' (ε : ℝ) (U : finset (finset α)) : ∃ (μ : measure (f
 --notation X ` ⊈ ` Y := ¬ (X ⊆ Y)
 -/
 -------------------------------------------------------------------------
+
+-- noncomputable def lhs_sample_space (m t : ℕ) (U : finset (finset α)) :=
+-- U.product
+--   (finset.sigma (((finset.univ : finset α).powerset_len (m * t)).bUnion (λ W, partitions_on W m t)) $
+--     (λ Ws, the_function Ws 𝒮 t))
+
+--   #check lhs_sample_space
+
+lemma lem2_part1 {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}   (hm : 1 ≤ m)
+  (ht : 1 ≤ t) (hε : 0 < ε) (hn : ε ≤ m / 64 * fintype.card α)
+  (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U) :
+  (((sample_space α m t).filter
+      (λ Ws, ∀ S ∈ 𝒮, (shadow (the_function Ws 𝒮 t) S).nonempty)).card : ℝ) /
+    (sample_space α m t).card ≤
+  𝔼 Ws in sample_space α m t, 𝔼 u in U, ((shadow (the_function Ws 𝒮 t) u).card : ℝ) :=
+begin
+  sorry
+end
+
+lemma lem2_part2 {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}   (hm : 1 ≤ m)
+  (ht : 1 ≤ t) (hε : 0 < ε) (hn : ε ≤ m / 64 * fintype.card α)
+  (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U) :
+  (card (((univ : finset α).powerset_len (m * t)).filter (λ w, ∀T ∈ 𝒮, ¬ T ⊆ w)) : ℝ) /
+    ((fintype.card α).choose (m*t)) ≤
+  (((sample_space α m t).filter
+    (λ Ws, ∀ S ∈ 𝒮, (shadow (the_function Ws 𝒮 t) S).nonempty)).card : ℝ) /
+  (sample_space α m t).card :=
+begin
+  have : ∀ (Ws : ℕ → finset α),
+    Ws ∈ sample_space α m t → (∀ S ∈ 𝒮, ¬ S ⊆ (range t).bUnion Ws) →
+      ∀ S ∈ 𝒮, (shadow (the_function Ws 𝒮 t) S).nonempty,
+  { intros Ws h h' S hS',
+    obtain ⟨X, hX, hX'⟩ := ((cor1 hm ht hε hn hS hU).2 ((range t).bUnion Ws)).resolve_left
+      (by simpa using h') Ws _ _ hS',
+    { refine ⟨X, _⟩,
+      simp only [shadow, mem_filter, hX, hX', and_self] },
+    sorry },
+  sorry
+end
+
 theorem Lem2 (S : finset (finset α)) (W : finset(finset α) ) (t m: ℕ )
 (hel : ∀T ∈ S, (finset.card T:ℝ ) ≤ (2^t:ℝ ) ) (h_sp : spread (m*64⁻¹ / (fintype.card α )⁻¹) S):
---(hW  : finset.card W = m * t) :
-  (finset.card (W.filter (λ w, ∀T ∈ S, ¬ (T ⊆  w) )) : ℝ) ≤ (nat.choose (fintype.card α) (m*t)) / 8:=
--- having trouble in `uniformly random set of size mt` W part
--- I don't know why (λ w, ∀T ∈ S, T ⊈ W ) has an error
+  (finset.card ((univ.powerset_len (m * t)).filter (λ w, ∀T ∈ S, ¬ (T ⊆ w) )) : ℝ) ≤
+    (nat.choose (fintype.card α) (m*t)) / 8 :=
 begin
   sorry
 end
 
 theorem Cor2_easyver (S : finset (finset α) )(n k w m:ℕ )(hSk : ∀T∈S, finset.card T = k) (hk : 2 ≤ k)
-(hn : n = 2*w*m*t) ( ε:ℝ ) (he : 0 ≤ ε ) (hspr : spread ε S) : 
- ∃(T : finset (finset α ) ),  (T ⊆ S) ∧  (∀ B₁  B₂ ∈ T, B₁ ≠ B₂ →  disjoint B₁ B₂ ) 
+(hn : n = 2*w*m*t) ( ε:ℝ ) (he : 0 ≤ ε ) (hspr : spread ε S) :
+ ∃(T : finset (finset α ) ),  (T ⊆ S) ∧  (∀ B₁  B₂ ∈ T, B₁ ≠ B₂ →  disjoint B₁ B₂ )
  ∧ (2^(-9 : ℝ )*ε⁻¹/(real.logb  2 k) ≤ T.card ) :=
 begin
   set t:= nat.ceil (real.logb 2 k) with ht,
@@ -828,21 +1036,21 @@ begin
   {
     rw ht, exact nat.le_ceil (real.logb 2 ↑k),
   },
-  
-  
+
+
   sorry
 
 end
 
 
-theorem Cor2 (S : finset (finset α) )( k:ℕ )(hSk : ∀T∈S, finset.card T = k) 
+theorem Cor2 (S : finset (finset α) )( k:ℕ )(hSk : ∀T∈S, finset.card T = k)
 ( ε:ℝ ) (he : 0 ≤ ε ) (hspr : spread ε S) : 2 ≤ k →  ∃(T : finset (finset α ) ),
  (T ⊆ S) ∧  (∀ B₁  B₂ ∈ T, B₁ ≠ B₂ →  disjoint B₁ B₂ ) ∧  (2^(-9 : ℝ )*ε⁻¹/(real.logb  2 k) ≤ T.card ) :=
 begin
   set t:= nat.ceil (real.logb 2 k) with ht,
   have h_t_le : real.logb 2 k ≤ t := nat.le_ceil (real.logb 2 ↑k),
-  
-  
+
+
 --Choose random partiiton of [n]
 
 --Lemma2 is applicable
@@ -861,18 +1069,18 @@ end
 --Using different index. We use w+1 , k+1 for w, k in the paper. Then we can have induction from k=1,
 --and we don't need the prooves that 1 ≤ w,k.
 
-def sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (num_petal: ℕ ) : Prop := 
+def sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (num_petal: ℕ ) : Prop :=
   (finset.card S = num_petal) ∧ (∃(C : finset α), ∀ P₁ P₂ ∈ S, P₁ ≠ P₂ →  P₁ ∩ P₂ = C)
 
-def Thm3 (w : ℕ)(k: ℕ ){S: finset (finset α )} (hT : ∀ T ∈ S, finset.card T = k+1) 
-: Prop :=  ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w+1 : ℝ )*(real.logb 2 (k+1)) ∧ (r^(k+1) ≤ S.card → ∃F⊆S, ( sunflower F (w+1))) 
+def Thm3 (w : ℕ)(k: ℕ ){S: finset (finset α )} (hT : ∀ T ∈ S, finset.card T = k+1)
+: Prop :=  ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w+1 : ℝ )*(real.logb 2 (k+1)) ∧ (r^(k+1) ≤ S.card → ∃F⊆S, ( sunflower F (w+1)))
 
 --#check finset.card_eq_one
 
-def smaller_sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (Z : finset α) : finset (finset α ) := 
+def smaller_sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (Z : finset α) : finset (finset α ) :=
 S.image (λ s, s \ Z)
 
-lemma sunflower_iff_smaller {S : finset (finset α)} {Z : finset α} (n: ℕ) (h : ∀ s ∈ S, Z ⊆ s) : 
+lemma sunflower_iff_smaller {S : finset (finset α)} {Z : finset α} (n: ℕ) (h : ∀ s ∈ S, Z ⊆ s) :
   sunflower S n ↔ sunflower (smaller_sunflower S Z) n :=
 begin
   have injective : set.inj_on (λ s, s \ Z) S,
@@ -882,34 +1090,9 @@ begin
     have hZb : Z ⊆ b := h b hb,
     suffices : (a \ Z) ∪ Z = (b \ Z) ∪ Z,
     { 
-      
       sorry,
     },
     { rw hab, }
-    -- feel that this is too long 
-    -- ext x,
-    -- split,
-    -- { have hx : x ∈ Z ∨ x ∉ Z,
-    --   { by_contra c,
-    --     push_neg at c,
-    --     cases c with c1 c2,
-    --     apply c1,
-    --     exact c2, 
-    --     -- or just 'finish' solves this goal
-    --   },
-    --   cases hx with hx1 hx2,
-    --   { intro hxa,
-    --     exact finset.mem_of_subset hZb hx1, },
-    --   { have hx' : x ∈ a \ Z,
-    --     { sorry, },
-
-
-    --     sorry
-    --   },
-    -- },
-    -- { 
-    --   sorry
-    -- },
   },
   split,
   { intro hS,
@@ -927,7 +1110,7 @@ begin
   },
 end
 
-theorem Thm3' {w : ℕ}(k : ℕ ){r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1) 
+theorem Thm3' {w : ℕ}(k : ℕ ){r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1)
 : (w+1 : ℝ) = r → (real.logb 2 (k+1) = r * (2^9)⁻¹ * (w+1)⁻¹ ) →  (r^(k+1) ≤ finset.card S) → ∃F⊆S, ( sunflower F (w+1)) :=
 -- I think r can be equal to 2^9 * w * log(k+1) and w+1 = r
 begin
@@ -936,7 +1119,7 @@ begin
     simp at *,
     intros hwr h_log hrkS, --- I dont understand k=0 case.
     have hU : ∃U ⊆ S, (finset.card U  = w+1) ∧ (∀ P₁ P₂ ∈ U, P₁ ≠ P₂ →  disjoint P₁ P₂),
-    { 
+    {
       rw ← hwr at hrkS, norm_cast at hrkS, --push_cast
       have tmp := exists_smaller_set S (w+1) hrkS,
       cases tmp, use tmp_w,
@@ -944,11 +1127,11 @@ begin
       { exact tmp_h.1 },
       {split, exact tmp_h.2,
         intros P1 hP1 P2 hP2 h12,
-        have h_sing : ∀P ∈ tmp_w, finset.card P = 1 := 
-        begin  
-          rw subset_iff at tmp_h, intros P hPP, 
+        have h_sing : ∀P ∈ tmp_w, finset.card P = 1 :=
+        begin
+          rw subset_iff at tmp_h, intros P hPP,
           have hSS := tmp_h.1 hPP, exact hT P hSS,
-        end, 
+        end,
         obtain ⟨p1, rfl ⟩ := finset.card_eq_one.1 (h_sing P1 hP1),
         obtain ⟨p2, rfl ⟩:= finset.card_eq_one.1 (h_sing P2 hP2),
         simp,
@@ -956,7 +1139,7 @@ begin
         exact h12 (finset.singleton_inj.2 P12),
       },
     },
-    
+
     rcases hU with ⟨U,hU1,hU2,hU3⟩,
     use U, split, exact hU1,
     split, exact hU2,
@@ -965,21 +1148,21 @@ begin
     exact hU3,
   },
 
-  { 
+  {
     intros hwr hn hrkS,
-    by_contra, simp at h,  
+    by_contra, simp at h,
 
-    -- S is not (r⁻¹)-spread 
+    -- S is not (r⁻¹)-spread
     have h_S_nspread : ¬(spread r⁻¹ S ),
     {
       by_contra htmp,
       have k2tmp : 2 ≤ k + 2 := by linarith,
-      have rinv_pos : 0 ≤ r⁻¹ := begin rw ← hwr, apply le_of_lt, rw inv_pos, exact w.cast_add_one_pos,  end, 
+      have rinv_pos : 0 ≤ r⁻¹ := begin rw ← hwr, apply le_of_lt, rw inv_pos, exact w.cast_add_one_pos,  end,
       have COR2:= Cor2 S (k+2) hT r⁻¹ rinv_pos htmp k2tmp,
       rcases COR2 with ⟨Ttmp,hTT1, hTT2, hTT3⟩,
       have hTtmpcard : (w+1) ≤ finset.card Ttmp,
       {
-        simp at hn, simp at hTT3, 
+        simp at hn, simp at hTT3,
         sorry,
       },
       have Ttmptmp := exists_smaller_set Ttmp (w+1) hTtmpcard,
@@ -997,7 +1180,7 @@ begin
 
     --S is the sunflower
 
-  
+
 
 
     sorry
@@ -1012,11 +1195,11 @@ end
 
 
 
-/-theorem Thm3 {w k : ℕ}{S: finset (finset α )} (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k) 
-: ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w : ℝ )*(real.logb 2 k) ∧ 
+/-theorem Thm3 {w k : ℕ}{S: finset (finset α )} (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k)
+: ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w : ℝ )*(real.logb 2 k) ∧
 (r^k ≤ S.card → ∃F⊆S, ( sunflower F w)) :=
 begin
 
 sorry
 
-end -/ 
+end -/
