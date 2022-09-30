@@ -271,8 +271,29 @@ section partition
     { intros f hf,
       rw mem_partitions_on' at hf,
       simp only [extension, mem_sigma, mem_powerset_len],
-      
-      sorry },
+      refine ⟨_, _, _⟩,
+      { 
+        rcases hf with ⟨hf1, hf2, hf3⟩,
+        rw mem_partitions_on,
+        refine ⟨_, _, _⟩,
+        { intros i hi,
+          refine ⟨_, _⟩,
+          { apply hf3.1, },
+          { apply hf1,
+            exact nat.succ_lt_succ hi, }, },
+        { intros i hi,
+          apply hf2,
+          exact nat.succ_le_succ hi, },
+        { intros i hi j hj hij,
+          apply hf3.2,
+          exact (add_ne_add_left 1).mpr hij, }, },
+      { 
+        sorry
+      },
+      {
+        sorry
+      },
+    },
     { rintro f₁ f₂ hf₁ hf₂,
       simp only [heq_iff_eq, and_imp],
       intros h₁ h₂,
