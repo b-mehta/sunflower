@@ -5,6 +5,9 @@ import probability.independence
 import probability.conditional_expectation
 import probability.notation
 import probability.cond_count
+import analysis.special_functions.log.base
+import data.nat.basic
+import data.finset.basic
 
 open finset measure_theory probability_theory
 open_locale big_operators measure_theory ennreal
@@ -327,7 +330,8 @@ end
 def spread (ε : ℝ) (U : finset (finset α)) : Prop :=
 ∀ (Z : finset α), (finset.card (U.filter (λ u, Z ⊆ u)) : ℝ) ≤ ε ^ Z.card * U.card
 
-def spr_1 (a b c : ℝ ) (hc : 0 < c ): (a≤ b) → (a/c ≤  b / c) :=
+----- Lemmas for spred_iff_ratio ---------------------
+def spr_1 (a b c : ℝ ) (hc : 0 < c ): (a≤ b) → (a/c ≤  b / c) := 
 begin
   intros h, exact (div_le_div_right hc).mpr h,
 end
@@ -341,13 +345,13 @@ begin
   split,
   {
     unfold spread,
-    intros h Z,
+    intros h Z, 
     cases nat.eq_zero_or_pos U.card, --patter match wrt U.card
 
     { --When U.card = 0
     have zz  : ∀ r : ℝ ,  r / (0: ℝ ) = 0 := λ r, div_zero r,
     rw h_1,
-
+    
     rw ← zer_zerco,
     rw zz,
     exact pow_nonneg he Z.card,
@@ -361,7 +365,7 @@ begin
     convert spr_1 ↑((filter (λ (u : finset α), Z ⊆ u) U).card)  (ε^(Z.card) * ↑(U.card)) ↑(U.card) (nat.cast_pos.mpr h_1) h,
     symmetry,
     apply mul_div_cancel,
-    exact ne_of_gt ( nat.cast_pos.mpr h_1),
+    exact ne_of_gt ( nat.cast_pos.mpr h_1),  
     }
   },
 
@@ -369,15 +373,15 @@ begin
     unfold spread,
     intros h Z,
     specialize h Z,
-
-    have hUcard : 0 ≤ (U.card : ℝ ) :=
+    
+    have hUcard : 0 ≤ (U.card : ℝ ) := 
     begin
       rw zer_zerco,
       exact nat.cast_le.mpr(zero_le (U.card )),
     end,
 
     have H := mul_le_mul_of_nonneg_right h hUcard,
-
+    
     cases nat.eq_zero_or_pos U.card,
     { -- When U.card = 0
       have fil_zero : (filter (λ (u : finset α), Z ⊆ u) U).card =0,
@@ -390,13 +394,15 @@ begin
 
       rw fil_zero, rw h_1, simp,
     },
-
+    
     { -- When U.card > 0
       rw div_mul_cancel ↑((filter (λ (u : finset α), Z ⊆ u) U).card) at H,
       exact H,
       exact ne_of_gt ( nat.cast_pos.mpr h_1),
     }
 
+    
+    
   }
 end
 
@@ -425,7 +431,7 @@ end
 
 lemma to_antichain_subset : to_antichain G ⊆ G :=
 begin
-  apply finset.filter_subset,
+  apply filter_subset,
 end
 
 lemma is_antichain_to_antichain : is_antichain (⊆) (to_antichain G : set (finset α)) :=
@@ -577,11 +583,120 @@ begin
   simp only [this],
 end
 
+lemma part_two_a_helper (ht : 1 ≤ t) (S) (h : ¬ S ⊆ (finset.range t).bUnion W) :
+  2 ^ (t-1 - (t-1)) ≤ (S \ (finset.range (t-1 + 1)).bUnion W).card :=
+begin
+  have proof_subset : ∀ x : finset α, ∀ y : finset α, (x \ y).card = 0 → x ⊆ y,
+    {intros hx hy card,
+    have proof_empty : hx \ hy = ∅ := iff.elim_left finset.card_eq_zero card,
+    have proof_final : hx ⊆ hy, 
+      {have temp1 := iff.elim_left finset.eq_empty_iff_forall_not_mem proof_empty,
+      intros hx2 assump1,
+      have assump2:hx2 ∉ hx \ hy := temp1 hx2,
+      by_contra hnp,
+      refine assump2 _,
+      exact iff.elim_right (finset.mem_sdiff) (and.intro assump1 hnp),},
+    exact proof_final,},
+  have proof_card_zero : ∀ x:ℕ, (¬ 1 ≤ x ) → x = 0,
+    {intro x,
+    intro ineq,
+    linarith,},
+  have bound_simp : 1 ≤ (S \ (finset.range (t)).bUnion W).card,
+    {by_contra bound2,
+    exact h (proof_subset S ((finset.range (t)).bUnion W) (proof_card_zero (S \ (finset.range (t)).bUnion W).card bound2)),},
+  have final : 2 ^ (t-1 - (t-1)) ≤ (S \ (finset.range (t-1 + 1)).bUnion W).card,
+    {simp,
+    have equality:t-1+1 = t, {linarith},
+    rw equality,
+    exact bound_simp,},
+  exact final,
+end
+
 lemma thm1_part_two (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) (ht : 1 ≤ t) :
   (∃ S ∈ 𝒮, S ⊆ (range t).bUnion W) ∨ ∀ S ∈ 𝒮, ∃ X ∈ the_function W 𝒮 t, X ⊆ S :=
 begin
-  sorry
+  by_contra,
+  have h := not_or_distrib.1 h,
+  have not_sub_w := h.1,
+  apply h.2,
+  intros hs el_s,
+  let set_s' := finset.filter (λ Y, Y \ ((range t).bUnion W) ⊆ hs \ ((range t).bUnion W) ∧ (∀ (j:ℕ), j< t-1 → ∀ X:finset α, X ∈ the_partial_function W 𝒮 t j → ¬ X ⊆ Y)) 𝒮,
+  by_contra assump,
+  have non_empt : (∃ x:finset α, x ∈ set_s'), 
+    {use hs,
+    rw finset.mem_filter,
+    split, {exact el_s,},
+      {split, {apply finset.subset_of_eq, refl,},
+        {intros j bound X in_g,
+        by_contra,
+        have assump_pf:∃ x2 ∈ the_function W 𝒮 t, x2 ⊆ hs, 
+          {use X,
+          split,
+            {rw the_function,
+            rw finset.mem_bUnion,
+            use j,
+            split, 
+              {rw finset.mem_range, 
+              linarith,}, 
+              {exact in_g,}},{exact h,}},
+        exact assump assump_pf,}}},
+  let rem_w := λ (x:finset α), x \ (range t).bUnion W,
+  let set_s'_map := finset.image rem_w set_s',
+  have non_empt_im:set_s'_map.nonempty := finset.nonempty.image non_empt rem_w, 
+  have ex_min := exists_subset_minimal non_empt_im,
+  cases ex_min with X ex_min,
+  cases ex_min with X_el ex_min,
+  apply assump,
+  use X,
+  have X_w := finset.mem_image.1 X_el,
+  cases X_w with a aw_eq_x,
+  cases aw_eq_x with a_in_s' func_a_x,
+  have rw_X:a\(range t).bUnion W = X,{exact func_a_x,},
+  have equality:t-1+1 = t, {linarith},
+  have a_in_s := finset.mem_of_mem_filter a a_in_s',
+  split, 
+    {rw the_function,
+    rw finset.mem_bUnion,
+    use t-1,
+    rw finset.mem_range, 
+    split, {linarith,},
+      {rw the_partial_function,
+      rw finset.mem_image,
+      use a,
+      split, 
+        {rw finset.mem_filter,
+        refine ⟨_,_,_,_⟩,
+          {exact a_in_s,},
+          {have rw_not_sub_w,
+            {have el_imply := ((not_exists.1 not_sub_w) a),
+            have el_imply_clean := not_exists.1 el_imply,
+            exact el_imply_clean a_in_s,},
+          have pow2_eq : ∀ (vr:ℕ), vr ≥ 1 → 2 ^ (vr-(vr-1)-1) = 2 ^ (vr-1 - (vr-1)), {intros vr ineq, finish,},
+          rw (pow2_eq t ht),
+          exact part_two_a_helper ht a rw_not_sub_w,},
+          {exact (finset.mem_filter.1 a_in_s').2.2,},
+          {rw equality,
+          intros hs' hs'_in_s hs'_sub,
+          have strict_sub_hs := finset.ssubset_of_ssubset_of_subset hs'_sub (finset.mem_filter.1 a_in_s').2.1,
+          by_contra minset_prop,
+          have sub_hs := (finset.ssubset_iff_subset_ne.1 strict_sub_hs).1,
+          have fulfills_minset_prop := and.intro sub_hs minset_prop,
+          have hs'_in_minset:hs' ∈ set_s' := finset.mem_filter.2 (and.intro hs'_in_s fulfills_minset_prop),
+          have hs'_w_in_minset_map:hs'\ (range t).bUnion W ∈ set_s'_map,{apply finset.mem_image.2,use hs',use hs'_in_minset,},
+          have s'_is_minset:hs'\ (range t).bUnion W = a\ (range t).bUnion W,
+            {rw rw_X,
+            have hs'_sub_x:hs'\ (range t).bUnion W ⊆ X,
+              {rw eq.symm rw_X, 
+              exact (finset.ssubset_iff_subset_ne.1 hs'_sub).1,},
+            exact ex_min (hs'\ (range t).bUnion W) hs'_w_in_minset_map hs'_sub_x,},
+          exact (finset.ssubset_iff_subset_ne.1 hs'_sub).2 s'_is_minset,}},
+        {rw equality,exact func_a_x,},},},
+    {rw eq.symm rw_X,
+    have a_w_sub_hs_w:a\ (range t).bUnion W ⊆ hs\ (range t).bUnion W := (finset.mem_filter.1 a_in_s').2.1,
+    have hs_w_sub_hs: hs\ (range t).bUnion W ⊆ hs := finset.sdiff_subset hs ((range t).bUnion W),
+    exact finset.subset.trans a_w_sub_hs_w hs_w_sub_hs,}
 end
+
 
 def sample_space (α : Type*) [fintype α] [decidable_eq α] (m t : ℕ) :=
 partitions_on (finset.univ : finset α) m t
@@ -676,42 +791,169 @@ end
 --   -- apply part_one_one_other_easy_bit _ h₁,
 -- end
 
+--#exit
+/-
 -- variables {Ω : Type*} [measurable_space Ω] {μ : measure Ω}
 
--- instance {α : Type*} : measurable_space (finset α) := ⊤
+lemma exists_uniform' (ε : ℝ) (U : finset (finset α)) : ∃ (μ : measure (finset α))
+  (UU : finset α → finset α), pdf.is_uniform UU (U : set (finset α)) μ measure.count :=
+⟨_, _, exists_uniform _ _ measurable_space.measurable_set_top⟩
 
--- def spread_distribution (μ : measure Ω) (ε : ℝ) (UU : Ω → finset α) : Prop :=
--- ∀ Z : finset α, (μ {ω | Z ⊆ UU ω}).to_real ≤ ε ^ Z.card
 
--- lemma spread_iff_uniform (ε : ℝ) (U : finset (finset α)) (UU : Ω → finset α)
---   (hUU : pdf.is_uniform UU (U : set (finset α)) μ measure.count) :
---   spread ε U ↔ spread_distribution μ ε UU :=
--- by sorry -- TODO: Bhavik
+--notation X ` ⊈ ` Y := ¬ (X ⊆ Y)
+-/
+-------------------------------------------------------------------------
+theorem Lem2 (S : finset (finset α)) (W : finset(finset α) ) (t m: ℕ )
+(hel : ∀T ∈ S, (finset.card T:ℝ ) ≤ (2^t:ℝ ) ) (h_sp : spread (m*64⁻¹ / (fintype.card α )⁻¹) S):
+--(hW  : finset.card W = m * t) :
+  (finset.card (W.filter (λ w, ∀T ∈ S, ¬ (T ⊆  w) )) : ℝ) ≤ (nat.choose (fintype.card α) (m*t)) / 8:=
+-- having trouble in `uniformly random set of size mt` W part
+-- I don't know why (λ w, ∀T ∈ S, T ⊈ W ) has an error
+begin
+  sorry
+end
 
--- lemma exists_uniform {E : Type*} [measurable_space E] (s : set E) (μ : measure E) [sigma_finite μ]
---   (hs : measurable_set s) :
---   pdf.is_uniform id s (μ[|s]) μ :=
--- begin
---   haveI : has_pdf (id : E → E) (μ[|s]) μ,
---   { refine ⟨⟨measurable_id, s.indicator ((μ s)⁻¹ • 1), _, _⟩⟩,
---     { refine measurable.indicator _ hs,
---       refine measurable_one.const_smul _ },
---     rw [with_density_indicator hs, with_density_smul _ measurable_one, with_density_one,
---       measure.map_id],
---     refl },
---   change _ =ᵐ[_] _,
---   apply ae_eq_of_forall_set_lintegral_eq_of_sigma_finite,
---   { apply measurable_pdf },
---   { exact (measurable_one.const_smul _).indicator hs },
---   intros A hA hA',
---   rw [←map_eq_set_lintegral_pdf (id : E → E) (μ[|s]) μ hA],
---   rw lintegral_indicator _ hs,
---   rw measure.map_id,
---   simp only [pi.smul_apply, pi.one_apply, algebra.id.smul_eq_mul, mul_one, lintegral_const,
---     measure.restrict_apply, measurable_set.univ, set.univ_inter],
---   rw [cond_apply _ hs, measure.restrict_apply hs],
--- end
+theorem Cor2_easyver (S : finset (finset α) )(n k w m:ℕ )(hSk : ∀T∈S, finset.card T = k) (hk : 2 ≤ k)
+(hn : n = 2*w*m*t) ( ε:ℝ ) (he : 0 ≤ ε ) (hspr : spread ε S) : 
+ ∃(T : finset (finset α ) ),  (T ⊆ S) ∧  (∀ B₁  B₂ ∈ T, B₁ ≠ B₂ →  disjoint B₁ B₂ ) 
+ ∧ (2^(-9 : ℝ )*ε⁻¹/(real.logb  2 k) ≤ T.card ) :=
+begin
+  set t:= nat.ceil (real.logb 2 k) with ht,
+  have h_t_le : real.logb 2 k ≤ t,
+  {
+    rw ht, exact nat.le_ceil (real.logb 2 ↑k),
+  },
+  
+  
+  sorry
 
--- lemma exists_uniform' (ε : ℝ) (U : finset (finset α)) : ∃ (μ : measure (finset α))
---   (UU : finset α → finset α), pdf.is_uniform UU (U : set (finset α)) μ measure.count :=
--- ⟨_, _, exists_uniform _ _ measurable_space.measurable_set_top⟩
+end
+
+
+theorem Cor2 (S : finset (finset α) )( k:ℕ )(hSk : ∀T∈S, finset.card T = k) 
+( ε:ℝ ) (he : 0 ≤ ε ) (hspr : spread ε S) : 2 ≤ k →  ∃(T : finset (finset α ) ),
+ (T ⊆ S) ∧  (∀ B₁  B₂ ∈ T, B₁ ≠ B₂ →  disjoint B₁ B₂ ) ∧  (2^(-9 : ℝ )*ε⁻¹/(real.logb  2 k) ≤ T.card ) :=
+begin
+  set t:= nat.ceil (real.logb 2 k) with ht,
+  have h_t_le : real.logb 2 k ≤ t := nat.le_ceil (real.logb 2 ↑k),
+  
+  
+--Choose random partiiton of [n]
+
+--Lemma2 is applicable
+
+--Apply Lemma 2
+
+--Expectation > w implies actual such case
+
+--use the right T
+
+--split,
+
+sorry
+end
+
+--Using different index. We use w+1 , k+1 for w, k in the paper. Then we can have induction from k=1,
+--and we don't need the prooves that 1 ≤ w,k.
+
+def sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (num_petal: ℕ ) : Prop := 
+  (finset.card S = num_petal) ∧ (∃(C : finset α), ∀ P₁ P₂ ∈ S, P₁ ≠ P₂ →  P₁ ∩ P₂ = C)
+
+def Thm3 (w : ℕ)(k: ℕ ){S: finset (finset α )} (hT : ∀ T ∈ S, finset.card T = k+1) 
+: Prop :=  ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w+1 : ℝ )*(real.logb 2 (k+1)) ∧ (r^(k+1) ≤ S.card → ∃F⊆S, ( sunflower F (w+1))) 
+
+--#check finset.card_eq_one
+
+
+theorem Thm3' {w : ℕ}(k : ℕ ){r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1) 
+: (w+1 : ℝ) = r → (real.logb 2 (k+1) = r * (2^9)⁻¹ * (w+1)⁻¹ ) →  (r^(k+1) ≤ finset.card S) → ∃F⊆S, ( sunflower F (w+1)) :=
+-- I think r can be equal to 2^9 * w * log(k+1) and w+1 = r
+begin
+  induction k using nat.case_strong_induction_on with k ih generalizing S,
+  {
+    simp at *,
+    intros hwr h_log hrkS, --- I dont understand k=0 case.
+    have hU : ∃U ⊆ S, (finset.card U  = w+1) ∧ (∀ P₁ P₂ ∈ U, P₁ ≠ P₂ →  disjoint P₁ P₂),
+    { 
+      rw ← hwr at hrkS, norm_cast at hrkS, --push_cast
+      have tmp := exists_smaller_set S (w+1) hrkS,
+      cases tmp, use tmp_w,
+      split,
+      { exact tmp_h.1 },
+      {split, exact tmp_h.2,
+        intros P1 hP1 P2 hP2 h12,
+        have h_sing : ∀P ∈ tmp_w, finset.card P = 1 := 
+        begin  
+          rw subset_iff at tmp_h, intros P hPP, 
+          have hSS := tmp_h.1 hPP, exact hT P hSS,
+        end, 
+        obtain ⟨p1, rfl ⟩ := finset.card_eq_one.1 (h_sing P1 hP1),
+        obtain ⟨p2, rfl ⟩:= finset.card_eq_one.1 (h_sing P2 hP2),
+        simp,
+        intro P12,
+        exact h12 (finset.singleton_inj.2 P12),
+      },
+    },
+    
+    rcases hU with ⟨U,hU1,hU2,hU3⟩,
+    use U, split, exact hU1,
+    split, exact hU2,
+    use ∅,
+    simp only [ finset.disjoint_iff_inter_eq_empty] at hU3,
+    exact hU3,
+  },
+
+  { 
+    intros hwr hn hrkS,
+    by_contra, simp at h,  
+
+    -- S is not (r⁻¹)-spread 
+    have h_S_nspread : ¬(spread r⁻¹ S ),
+    {
+      by_contra htmp,
+      have k2tmp : 2 ≤ k + 2 := by linarith,
+      have rinv_pos : 0 ≤ r⁻¹ := begin rw ← hwr, apply le_of_lt, rw inv_pos, exact w.cast_add_one_pos,  end, 
+      have COR2:= Cor2 S (k+2) hT r⁻¹ rinv_pos htmp k2tmp,
+      rcases COR2 with ⟨Ttmp,hTT1, hTT2, hTT3⟩,
+      have hTtmpcard : (w+1) ≤ finset.card Ttmp,
+      {
+        simp at hn, simp at hTT3, 
+        sorry,
+      },
+      have Ttmptmp := exists_smaller_set Ttmp (w+1) tTtmpcard,
+      --apply (h T hTT1),
+      unfold sunflower,
+
+      sorry,
+    },
+
+
+
+    -- Construction of Z and S'
+
+    -- S'' is the sunflower
+
+    --S is the sunflower
+
+  
+
+
+    sorry
+  }
+end
+
+theorem Thm3_equiv {w : ℕ}(k: ℕ ){r: ℝ}(S: finset (finset α )) (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k+1):  (Thm3 w k hT) :=
+begin
+end
+
+
+
+
+/-theorem Thm3 {w k : ℕ}{S: finset (finset α )} (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k) 
+: ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w : ℝ )*(real.logb 2 k) ∧ 
+(r^k ≤ S.card → ∃F⊆S, ( sunflower F w)) :=
+begin
+
+sorry
+
+end -/ 
