@@ -1083,7 +1083,41 @@ S.image (λ s, s \ Z)
 lemma sunflower_iff_smaller {S : finset (finset α)} {Z : finset α} (n: ℕ) (h : ∀ s ∈ S, Z ⊆ s) :
   sunflower S n ↔ sunflower (smaller_sunflower S Z) n :=
 begin
+  have injective : set.inj_on (λ s, s \ Z) S,
+  { intros a ha b hb hab,
+    dsimp at hab,
+    have hZa : Z ⊆ a := h a ha,
+    have hZb : Z ⊆ b := h b hb,
+    ext x,
+    split,
+    { have hx : x ∈ Z ∨ x ∉ Z,
+      { by_contra, 
+        finish, },
+      cases hx with hx1 hx2,
+      { intro hxa,
+        exact finset.mem_of_subset hZb hx1, },
+      { 
+        sorry
+      },
+    },
+    {
+      sorry
+    },
+  },
+  split,
+  { intro hS,
+    cases hS with hS1 hS2,
+    refine ⟨_, _⟩,
+    { 
+      sorry
+    },
+    {
+      sorry
+    },
+  },
+  {
   sorry
+  },
 end
 
 theorem Thm3' {w : ℕ}(k : ℕ ){r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1)
@@ -1165,6 +1199,7 @@ end
 
 theorem Thm3_equiv {w : ℕ}(k: ℕ ){r: ℝ}(S: finset (finset α )) (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k+1):  (Thm3 w k hT) :=
 begin
+  sorry
 end
 
 
