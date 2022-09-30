@@ -822,6 +822,14 @@ lemma powerset_filter_subset {α : Type*} [decidable_eq α] (n : ℕ) (s t : fin
   (powerset_len n s).filter (λ i, i ⊆ t) = (powerset_len n (s ∩ t)) :=
 by { ext x, simp [mem_powerset_len, subset_inter_iff, and.right_comm] }
 
+lemma partitions_on_subset {s₁ s₂ : finset α} {m t} (h : s₁ ⊆ s₂):
+  partitions_on s₁ m t ⊆ partitions_on s₂ m t :=
+filter_subset_filter _ (map_subset_map.2 (pi_subset _ _ (λ _ _, powerset_len_mono h)))
+
+lemma partitions_on_of_subset {s₁ s₂ : finset α} {m t} {f : ℕ → finset α} (h : ∀ i < t, f i ⊆ s₁) :
+  f ∈ partitions_on s₂ m t → f ∈ partitions_on s₁ m t :=
+by simp [mem_partitions_on, h] {contextual := tt}
+
 open_locale classical
 
 lemma partitions_on_eq {s : finset α} {m t} :
@@ -997,6 +1005,19 @@ begin
   sorry
 end
 
+lemma bUnion_ite {α β : Type*} (s : finset α) (p : α → Prop) [decidable_pred p] (f : α → finset β) :
+  s.bUnion (λ i, if p i then f i else ∅) = (s.filter p).bUnion f :=
+begin
+  ext x,
+  simp only [mem_bUnion, exists_prop, mem_filter],
+  refine exists_congr (λ a, _),
+  split_ifs,
+  { simp [h] },
+  { simp [h] },
+end
+
+open finset
+
 lemma lem2_part2 {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}   (hm : 1 ≤ m)
   (ht : 1 ≤ t) (hε : 0 < ε) (hn : ε ≤ m / 64 * fintype.card α)
   (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U) :
@@ -1014,8 +1035,58 @@ begin
       (by simpa using h') Ws _ _ hS',
     { refine ⟨X, _⟩,
       simp only [shadow, mem_filter, hX, hX', and_self] },
-    sorry },
-  sorry
+    apply partitions_on_of_subset _ h,
+    intros i hi,
+    exact subset_bUnion_of_mem _ (by simpa using hi) }, -- trivial statement about partitions
+  have : (sample_space α m t).filter
+      (λ Ws, ∀ S ∈ 𝒮, ¬ S ⊆ (range t).bUnion Ws) ⊆
+        (sample_space α m t).filter
+      (λ (Ws : ℕ → finset α), ∀ S ∈ 𝒮, (shadow (the_function Ws 𝒮 t) S).nonempty),
+  { intros Ws hWs,
+    simp only [mem_filter] at hWs ⊢,
+    exact ⟨hWs.1, this _ hWs.1 hWs.2⟩ },
+  refine le_trans _ (div_le_div_of_le (nat.cast_nonneg _) (nat.cast_le.2 (card_le_of_subset this))),
+  rw [sample_space, partitions_on_eq, filter_bUnion],
+  have : (powerset_len (m * t) univ).bUnion (λ a, filter
+    (λ (Ws : ℕ → finset α), ∀ S ∈ 𝒮, ¬S ⊆ (range t).bUnion Ws) (partitions_on a m t)) =
+         (powerset_len (m * t) univ).bUnion (λ a, filter
+    (λ (Ws : ℕ → finset α), ∀ S ∈ 𝒮, ¬S ⊆ a) (partitions_on a m t)),
+  { ext a,
+    simp only [mem_bUnion, mem_filter, exists_prop, mem_powerset_len_univ_iff],
+    refine exists_congr (λ W, _),
+    simp only [and.congr_right_iff],
+    intros hW hW',
+    refine ball_congr (λ S hS, _),
+    congr' 3,
+    apply eq_of_subset_of_card_le (subset_of_mem_partitions_on hW'),
+    rw [card_bUnion_of_mem_partitions_on hW', hW] },
+  rw [this],
+  simp only [filter_const, bUnion_ite],
+  rw [card_bUnion, card_bUnion],
+  { simp only [card_partitions_on],
+    rw [@sum_const_nat _ _ (∏ (i : ℕ) in range t, ((m * t - m * i).choose m)),
+        @sum_const_nat _ _ (∏ (i : ℕ) in range t, ((m * t - m * i).choose m)),
+        nat.cast_mul, nat.cast_mul, mul_div_mul_right, card_powerset_len, card_univ],
+    { rw nat.cast_ne_zero,
+      rw finset.prod_ne_zero_iff,
+      intros i hi,
+      rw [ne.def, nat.choose_eq_zero_iff, not_lt, ←nat.mul_sub_left_distrib],
+      apply le_mul_of_one_le_right',
+      rw nat.succ_le_iff,
+      rw mem_range at hi,
+      apply nat.sub_pos_of_lt hi },
+    { intros x hx,
+      simp only [mem_powerset_len_univ_iff] at hx,
+      simp only [hx] },
+    { intros x hx,
+      simp only [mem_filter, mem_powerset_len_univ_iff] at hx,
+      simp only [hx.1] } },
+  { simp only [mem_powerset_len_univ_iff, ne.def, finset.disjoint_left],
+    intros W₁ hW₁ W₂ hW₂ h f hf₁ hf₂,
+    exact h (partitions_on_inj_on hW₁ hW₂ hf₁ hf₂) },
+  { simp only [mem_powerset_len_univ_iff, ne.def, finset.disjoint_left, mem_filter],
+    intros W₁ hW₁ W₂ hW₂ h f hf₁ hf₂,
+    exact h (partitions_on_inj_on hW₁.1 hW₂.1 hf₁ hf₂) },
 end
 
 theorem Lem2 (S : finset (finset α)) (W : finset(finset α) ) (t m: ℕ )
@@ -1091,12 +1162,12 @@ begin
     ext x,
     split,
     { have hx : x ∈ Z ∨ x ∉ Z,
-      { by_contra, 
+      { by_contra,
         finish, },
       cases hx with hx1 hx2,
       { intro hxa,
         exact finset.mem_of_subset hZb hx1, },
-      { 
+      {
         sorry
       },
     },
@@ -1108,7 +1179,7 @@ begin
   { intro hS,
     cases hS with hS1 hS2,
     refine ⟨_, _⟩,
-    { 
+    {
       sorry
     },
     {
