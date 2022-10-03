@@ -336,6 +336,7 @@ section partition
       intros f hf,
       refine ⟨λ n, nat.cases_on n V f, ⟨_, rfl⟩, rfl⟩,
       rw [mem_partitions_on'],
+    
       sorry -- xialu
       },
   end
@@ -692,7 +693,7 @@ begin
     exact bound_simp,},
   exact final,
 end
-
+/-
 lemma thm1_part_two (W : ℕ → finset α) (𝒮 : finset (finset α)) (t : ℕ) (ht : 1 ≤ t) :
   (∃ S ∈ 𝒮, S ⊆ (range t).bUnion W) ∨ ∀ S ∈ 𝒮, ∃ X ∈ the_function W 𝒮 t, X ⊆ S :=
 begin
@@ -778,7 +779,7 @@ begin
     have a_w_sub_hs_w:a\ (range t).bUnion W ⊆ hs\ (range t).bUnion W := (finset.mem_filter.1 a_in_s').2.1,
     have hs_w_sub_hs: hs\ (range t).bUnion W ⊆ hs := finset.sdiff_subset hs ((range t).bUnion W),
     exact finset.subset.trans a_w_sub_hs_w hs_w_sub_hs,}
-end
+end-/
 
 
 def sample_space (α : Type*) [fintype α] [decidable_eq α] (m t : ℕ) :=
@@ -818,6 +819,14 @@ end
 lemma powerset_filter_subset {α : Type*} [decidable_eq α] (n : ℕ) (s t : finset α) :
   (powerset_len n s).filter (λ i, i ⊆ t) = (powerset_len n (s ∩ t)) :=
 by { ext x, simp [mem_powerset_len, subset_inter_iff, and.right_comm] }
+
+lemma partitions_on_subset {s₁ s₂ : finset α} {m t} (h : s₁ ⊆ s₂):
+  partitions_on s₁ m t ⊆ partitions_on s₂ m t :=
+filter_subset_filter _ (map_subset_map.2 (pi_subset _ _ (λ _ _, powerset_len_mono h)))
+
+lemma partitions_on_of_subset {s₁ s₂ : finset α} {m t} {f : ℕ → finset α} (h : ∀ i < t, f i ⊆ s₁) :
+  f ∈ partitions_on s₂ m t → f ∈ partitions_on s₁ m t :=
+by simp [mem_partitions_on, h] {contextual := tt}
 
 open_locale classical
 
@@ -994,6 +1003,19 @@ begin
   sorry
 end
 
+lemma bUnion_ite {α β : Type*} (s : finset α) (p : α → Prop) [decidable_pred p] (f : α → finset β) :
+  s.bUnion (λ i, if p i then f i else ∅) = (s.filter p).bUnion f :=
+begin
+  ext x,
+  simp only [mem_bUnion, exists_prop, mem_filter],
+  refine exists_congr (λ a, _),
+  split_ifs,
+  { simp [h] },
+  { simp [h] },
+end
+
+open finset
+
 lemma lem2_part2 {m t : ℕ} {𝒮 : finset (finset α)} {U : finset (finset α)} {ε : ℝ}   (hm : 1 ≤ m)
   (ht : 1 ≤ t) (hε : 0 < ε) (hn : ε ≤ m / 64 * fintype.card α)
   (hS : ∀ S ∈ 𝒮, finset.card S ≤ 2 ^ t) (hU : spread ε U) :
@@ -1011,8 +1033,58 @@ begin
       (by simpa using h') Ws _ _ hS',
     { refine ⟨X, _⟩,
       simp only [shadow, mem_filter, hX, hX', and_self] },
-    sorry },
-  sorry
+    apply partitions_on_of_subset _ h,
+    intros i hi,
+    exact subset_bUnion_of_mem _ (by simpa using hi) }, -- trivial statement about partitions
+  have : (sample_space α m t).filter
+      (λ Ws, ∀ S ∈ 𝒮, ¬ S ⊆ (range t).bUnion Ws) ⊆
+        (sample_space α m t).filter
+      (λ (Ws : ℕ → finset α), ∀ S ∈ 𝒮, (shadow (the_function Ws 𝒮 t) S).nonempty),
+  { intros Ws hWs,
+    simp only [mem_filter] at hWs ⊢,
+    exact ⟨hWs.1, this _ hWs.1 hWs.2⟩ },
+  refine le_trans _ (div_le_div_of_le (nat.cast_nonneg _) (nat.cast_le.2 (card_le_of_subset this))),
+  rw [sample_space, partitions_on_eq, filter_bUnion],
+  have : (powerset_len (m * t) univ).bUnion (λ a, filter
+    (λ (Ws : ℕ → finset α), ∀ S ∈ 𝒮, ¬S ⊆ (range t).bUnion Ws) (partitions_on a m t)) =
+         (powerset_len (m * t) univ).bUnion (λ a, filter
+    (λ (Ws : ℕ → finset α), ∀ S ∈ 𝒮, ¬S ⊆ a) (partitions_on a m t)),
+  { ext a,
+    simp only [mem_bUnion, mem_filter, exists_prop, mem_powerset_len_univ_iff],
+    refine exists_congr (λ W, _),
+    simp only [and.congr_right_iff],
+    intros hW hW',
+    refine ball_congr (λ S hS, _),
+    congr' 3,
+    apply eq_of_subset_of_card_le (subset_of_mem_partitions_on hW'),
+    rw [card_bUnion_of_mem_partitions_on hW', hW] },
+  rw [this],
+  simp only [filter_const, bUnion_ite],
+  rw [card_bUnion, card_bUnion],
+  { simp only [card_partitions_on],
+    rw [@sum_const_nat _ _ (∏ (i : ℕ) in range t, ((m * t - m * i).choose m)),
+        @sum_const_nat _ _ (∏ (i : ℕ) in range t, ((m * t - m * i).choose m)),
+        nat.cast_mul, nat.cast_mul, mul_div_mul_right, card_powerset_len, card_univ],
+    { rw nat.cast_ne_zero,
+      rw finset.prod_ne_zero_iff,
+      intros i hi,
+      rw [ne.def, nat.choose_eq_zero_iff, not_lt, ←nat.mul_sub_left_distrib],
+      apply le_mul_of_one_le_right',
+      rw nat.succ_le_iff,
+      rw mem_range at hi,
+      apply nat.sub_pos_of_lt hi },
+    { intros x hx,
+      simp only [mem_powerset_len_univ_iff] at hx,
+      simp only [hx] },
+    { intros x hx,
+      simp only [mem_filter, mem_powerset_len_univ_iff] at hx,
+      simp only [hx.1] } },
+  { simp only [mem_powerset_len_univ_iff, ne.def, finset.disjoint_left],
+    intros W₁ hW₁ W₂ hW₂ h f hf₁ hf₂,
+    exact h (partitions_on_inj_on hW₁ hW₂ hf₁ hf₂) },
+  { simp only [mem_powerset_len_univ_iff, ne.def, finset.disjoint_left, mem_filter],
+    intros W₁ hW₁ W₂ hW₂ h f hf₁ hf₂,
+    exact h (partitions_on_inj_on hW₁.1 hW₂.1 hf₁ hf₂) },
 end
 
 theorem Lem2 (S : finset (finset α)) (W : finset(finset α) ) (t m: ℕ )
@@ -1066,13 +1138,30 @@ end
 --Using different index. We use w+1 , k+1 for w, k in the paper. Then we can have induction from k=1,
 --and we don't need the prooves that 1 ≤ w,k.
 
+-- lemma finset.sdiff_inter_sdiff_eq (a b c : finset α) : (a \ c) ∩ (b \ c) = (a ∩ b) \ c:= 
+-- begin
+--   rw finset.inter_sdiff,
+--   rw inter_comm,
+--   rw finset.inter_sdiff,
+--   rw inter_comm b a,
+--   rw finset.sdiff_eq_self_iff_disjoint,
+--   exact sdiff_disjoint,
+-- end
+
+-- lemma finset.sdiff_union_subset (a b c : finset α) (h1 : a = b \ c) (h2 : c ⊆ b) : b = a ∪ c :=
+-- begin
+--   rw h1,
+--   rw ← finset.inter_eq_left_iff_subset at h2, 
+--   nth_rewrite 1 ← h2, 
+--   rw inter_comm,
+--   rw finset.sdiff_union_inter,
+-- end
+
 def sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (num_petal: ℕ ) : Prop :=
   (finset.card S = num_petal) ∧ (∃(C : finset α), ∀ P₁ P₂ ∈ S, P₁ ≠ P₂ →  P₁ ∩ P₂ = C)
 
 def Thm3 (w : ℕ)(k: ℕ ){S: finset (finset α )} (hT : ∀ T ∈ S, finset.card T = k+1)
 : Prop :=  ∃r : ℝ , r ≤  (2:ℝ)^(10:ℝ)*(w+1 : ℝ )*(real.logb 2 (k+1)) ∧ (r^(k+1) ≤ S.card → ∃F⊆S, ( sunflower F (w+1)))
-
---#check finset.card_eq_one
 
 def smaller_sunflower {α : Type*}[decidable_eq α ] (S : finset (finset α )) (Z : finset α) : finset (finset α ) :=
 S.image (λ s, s \ Z)
@@ -1086,13 +1175,10 @@ begin
     have hZa : Z ⊆ a := h a ha,
     have hZb : Z ⊆ b := h b hb,
     suffices : (a \ Z) ∪ Z = (b \ Z) ∪ Z,
-    { have h1 : (a \ Z) ∪ Z = a,
-      {rw finset.sdiff_union_self_eq_union,
-      sorry }, 
-      sorry,
-    },
-    { rw hab, }
-  },
+    { simp only [finset.sdiff_union_self_eq_union] at this,
+      rw ← finset.union_eq_left_iff_subset at hZa hZb,
+      simpa [hZa, hZb] using this, },
+    { rw hab, } },
   split,
   { intro hS,
     cases hS with hS1 hS2,
@@ -1102,22 +1188,59 @@ begin
     { rcases hS2 with ⟨C, hS⟩,
       use C \ Z,
       intros P₁ hP₁ P₂ hP₂ hP,
-
-      sorry
-    },
-  },
-  { intro hS, 
-    cases hS with hS1 hS2,
+      have hPs : ∀ P ∈ smaller_sunflower S Z, ∃ s ∈ S, P = s \ Z,
+      { intros x hx,
+        unfold smaller_sunflower at hx,
+        rw finset.mem_image at hx,
+        rcases hx with ⟨s, h1, h2⟩,  
+        use s,
+        simp only [h1, h2, eq_self_iff_true, and_self], },
+      have hP1 : ∃ s₁ ∈ S, P₁ = s₁ \ Z := hPs P₁ hP₁,
+      have hP2 : ∃ s₂ ∈ S, P₂ = s₂ \ Z := hPs P₂ hP₂,
+      rcases hP1 with ⟨s₁, hs₁, hP1⟩,
+      rcases hP2 with ⟨s₂, hs₂, hP2⟩, 
+      rw [hP1, hP2],          
+      rw finset.inter_sdiff,
+      rw inter_comm,
+      rw finset.inter_sdiff,
+      rw inter_comm s₂ s₁,
+      simp only [finset.sdiff_idem],
+      have hs : s₁ ≠ s₂, 
+      { by_contra,
+        apply hP,
+        rw [hP1, hP2, h], }, 
+      have := hS s₁ hs₁ s₂ hs₂ hs,
+      rw this, }, },
+  { intro hP, 
+    cases hP with hP1 hP2,
     refine ⟨_, _⟩,
     { rw ← finset.card_image_of_inj_on injective,
-      exact hS1, },
-    { rcases hS2 with ⟨C, hS⟩,
+      exact hP1, },
+    { rcases hP2 with ⟨C, hP⟩,
       use C ∪ Z,
-      intros P₁ hP₁ P₂ hP₂ hP,
-      sorry
-    },
-  },
+      intros s₁ hs₁ s₂ hs₂ hs,
+      have hPs' : ∀ s ∈ S, ∃ P ∈ smaller_sunflower S Z, s = P ∪ Z,
+      { intros s hs,
+        use s \ Z,
+        simp only [h s hs, sdiff_union_self_eq_union, left_eq_union_iff_subset, and_true],
+        unfold smaller_sunflower,
+        rw finset.mem_image,
+        use s,
+        simp only [hs, eq_self_iff_true, and_self], },
+      have hS1 : ∃ P₁ ∈ smaller_sunflower S Z, s₁ = P₁ ∪ Z := hPs' s₁ hs₁,
+      have hS2 : ∃ P₂ ∈ smaller_sunflower S Z, s₂ = P₂ ∪ Z := hPs' s₂ hs₂,
+      rcases hS1 with ⟨P₁, hP₁, hS1⟩,
+      rcases hS2 with ⟨P₂, hP₂, hS2⟩,
+      have hp : P₁ ≠ P₂,
+      { by_contra,
+        apply hs,
+        rw [hS1, hS2, h], }, 
+      have := hP P₁ hP₁ P₂ hP₂ hp, 
+      rw [hS1, hS2],
+      rw ← finset.union_distrib_right,
+      rw this, }, },
 end
+
 
 theorem Thm3' {w : ℕ}(k : ℕ ){r: ℝ}{S: finset (finset α )}  (hT : ∀ T ∈ S, finset.card T = k+1)
 : (w+1 : ℝ) = r → (real.logb 2 (k+1) = r * (2^9)⁻¹ * (w+1)⁻¹ ) →  (r^(k+1) ≤ finset.card S) → ∃F⊆S, ( sunflower F (w+1)) :=
@@ -1175,31 +1298,50 @@ begin
         sorry,
       },
       have Ttmptmp := exists_smaller_set Ttmp (w+1) hTtmpcard,
-      --apply (h T hTT1),
-      --unfold sunflower,
-
-      sorry,
+      rcases Ttmptmp with ⟨C, hC1, hC2 ⟩,
+      specialize h C (subset_trans hC1 hTT1),
+      apply h,
+      split, exact hC2,
+      use ∅,
+      intros P1 hP1 P2 hP2 h12,
+      simp only [ finset.disjoint_iff_inter_eq_empty] at hTT2,
+      apply hTT2 P1 (subset_iff.1 hC1 hP1) P2 ( subset_iff.1 hC1 hP2) h12,
     },
 
-
-
     -- Construction of Z and S'
+    have hZ : ∃(Z:finset α), (finset.card (S.filter (λ s, Z ⊆ s)) : ℝ) > r^(k- finset.card Z),
+    {
+      by_contra h_con, simp at h_con,
+      apply h_S_nspread,
+      unfold spread,
+      intros Z,
+      specialize h_con Z,
+      have temp : r ^ (k - Z.card) ≤ r⁻¹ ^ Z.card * ↑(S.card),
+      {
+        --use hrKS and hwr
+        sorry
+      },
+      convert (le_trans h_con temp),
+    },
+    rcases hZ with ⟨Z,hZ⟩,
+    --define S'
+    let S' := S.filter (λ s, Z ⊆ s),
 
     -- S'' is the sunflower
-
+    have hSmall :  sunflower (smaller_sunflower S' Z) (w+1), --change that some subset of S' is a sunflower
+    {
+      sorry --nontrivial sorry but not hard
+    },
     --S is the sunflower
-
-
-
-
-    sorry
+    have h_contains_Z :  ∀ s ∈ S', Z ⊆ s,
+    {
+      intros s, rw finset.mem_filter, intros hs, exact hs.2,
+    },
+    have hSprime : sunflower S' (w+1) := (sunflower_iff_smaller (w+1) h_contains_Z).2 hSmall,
+    apply h S' (finset.filter_subset (λ s, Z ⊆ s) S) hSprime,
   }
 end
 
-theorem Thm3_equiv {w : ℕ}(k: ℕ ){r: ℝ}(S: finset (finset α )) (hw : 1 ≤ w) ( hk : 1 ≤ k) (hT : ∀ T ∈ S, finset.card T = k+1):  (Thm3 w k hT) :=
-begin
-  sorry
-end
 
 
 
