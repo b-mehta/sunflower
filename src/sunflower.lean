@@ -597,7 +597,7 @@ end
 lemma exists_subset_minimal {S : finset (finset α)} (hS : S.nonempty) :
   ∃ X ∈ S, ∀ Y ∈ S, Y ⊆ X → Y = X :=
 begin
-  -- set M : finset (finset α) := S.filter(λ X : finset α, ∀ Y : finset α, Y ∈ S → X.card ≤ Y.card),
+  -- more difficult alternative: set M : finset (finset α) := S.filter(λ X : finset α, ∀ Y : finset α, Y ∈ S → X.card ≤ Y.card),
   set T : finset (finset α) := to_antichain S,
   -- claim T is non-empty
   have hT : T.nonempty,
@@ -612,10 +612,7 @@ begin
   cases this with X hX,
   -- use X ∈ T
   use X,
-  simp only [T] at hX,
-  unfold to_antichain at hX,
-  rw finset.mem_filter at hX,
-  exact hX,
+  simpa [T, to_antichain, finset.mem_filter] using hX,
 end
 
 variables {W : ℕ → finset α} {i : ℕ}
@@ -1089,7 +1086,9 @@ begin
     have hZa : Z ⊆ a := h a ha,
     have hZb : Z ⊆ b := h b hb,
     suffices : (a \ Z) ∪ Z = (b \ Z) ∪ Z,
-    { 
+    { have h1 : (a \ Z) ∪ Z = a,
+      {rw finset.sdiff_union_self_eq_union,
+      sorry }, 
       sorry,
     },
     { rw hab, }
@@ -1098,15 +1097,25 @@ begin
   { intro hS,
     cases hS with hS1 hS2,
     refine ⟨_, _⟩,
-    { 
-      sorry
-    },
-    {
+    { rw ← hS1,
+      exact finset.card_image_of_inj_on injective, },
+    { rcases hS2 with ⟨C, hS⟩,
+      use C \ Z,
+      intros P₁ hP₁ P₂ hP₂ hP,
+
       sorry
     },
   },
-  {
-  sorry
+  { intro hS, 
+    cases hS with hS1 hS2,
+    refine ⟨_, _⟩,
+    { rw ← finset.card_image_of_inj_on injective,
+      exact hS1, },
+    { rcases hS2 with ⟨C, hS⟩,
+      use C ∪ Z,
+      intros P₁ hP₁ P₂ hP₂ hP,
+      sorry
+    },
   },
 end
 
